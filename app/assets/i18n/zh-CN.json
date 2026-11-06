@@ -9,6 +9,12 @@
     "collapse": "收起",
     "composeHint": "输入消息…",
     "send": "发送",
+    "receiveCard": {
+      "title": "来自 {name} 的文件",
+      "filesCount": "{n} 个文件",
+      "moreFiles": "+{n} 个更多",
+      "canceled": "发送方已取消请求。"
+    },
     "outcome": {
       "preparing": "准备中…",
       "waiting": "等待对方响应…",

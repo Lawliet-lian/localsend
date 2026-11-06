@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:localsend_app/model/conversation/conversation_models.dart';
 import 'package:localsend_app/model/conversation/transfer_presentation.dart';
 import 'package:localsend_app/model/state/server/receive_session_state.dart';
 import 'package:localsend_app/model/state/server/receiving_file.dart';
@@ -15,6 +16,7 @@ import 'package:localsend_app/provider/favorites_provider.dart';
 import 'package:localsend_app/provider/file_transfer_provider.dart';
 import 'package:localsend_app/provider/http_provider.dart';
 import 'package:localsend_app/provider/logging/discovery_logs_provider.dart';
+import 'package:localsend_app/provider/network/conversation_receive_recorder.dart';
 import 'package:localsend_app/provider/network/send_provider.dart';
 import 'package:localsend_app/provider/network/server/server_provider.dart';
 import 'package:localsend_app/provider/network/server/server_utils.dart';
@@ -50,6 +52,9 @@ final _logger = Logger('ReceiveController');
 /// the events handled here.
 class ReceiveController {
   final ServerUtils server;
+
+  /// 接收侧会话记录器（P7b）：内部按 presentation guard，legacy session 全部空操作
+  late final ConversationReceiveRecorder _conversationRecorder = ConversationReceiveRecorder(server.ref);
 
   ReceiveController(this.server);
 
@@ -102,31 +107,34 @@ class ReceiveController {
       server.ref.notifier(transferPresentationProvider).set(sessionId, presentation);
     }
 
+    // 会话记录使用局部变量而非在 setState builder 内构造：登记时需要同一份 session 对象
+    final receiveSessionState = ReceiveSessionState(
+      sessionId: sessionId,
+      status: SessionStatus.waiting,
+      sender: event.info.toDevice(event.ip, withChannel: false).copyWith(fingerprint: senderFingerprint),
+      senderAlias: server.ref.read(favoritesProvider).firstWhereOrNull((e) => e.fingerprint == senderFingerprint)?.alias ?? event.info.alias,
+      files: {
+        for (final file in files.values)
+          file.id: ReceivingFile(
+            file: file,
+            token: null,
+            desiredName: null,
+            path: null,
+            savedToGallery: false,
+            errorMessage: null,
+          ),
+      },
+      startTime: null,
+      endTime: null,
+      destinationDirectory: destinationDir,
+      cacheDirectory: cacheDir,
+      saveToGallery: checkPlatformWithGallery() && settings.saveToGallery && files.values.every((f) => !f.fileName.contains('/')),
+      createdDirectories: {},
+    );
+
     server.setState(
       (oldState) => oldState?.copyWith(
-        session: ReceiveSessionState(
-          sessionId: sessionId,
-          status: SessionStatus.waiting,
-          sender: event.info.toDevice(event.ip, withChannel: false).copyWith(fingerprint: senderFingerprint),
-          senderAlias: server.ref.read(favoritesProvider).firstWhereOrNull((e) => e.fingerprint == senderFingerprint)?.alias ?? event.info.alias,
-          files: {
-            for (final file in files.values)
-              file.id: ReceivingFile(
-                file: file,
-                token: null,
-                desiredName: null,
-                path: null,
-                savedToGallery: false,
-                errorMessage: null,
-              ),
-          },
-          startTime: null,
-          endTime: null,
-          destinationDirectory: destinationDir,
-          cacheDirectory: cacheDir,
-          saveToGallery: checkPlatformWithGallery() && settings.saveToGallery && files.values.every((f) => !f.fileName.contains('/')),
-          createdDirectories: {},
-        ),
+        session: receiveSessionState,
       ),
     );
 
@@ -136,6 +144,9 @@ class ReceiveController {
           sessionId: sessionId,
           statuses: {for (final file in files.values) file.id: FileStatus.queue},
         );
+
+    // P7b：请求到达即登记会话条目（waiting；消息则 kind=text）。legacy 为空操作。
+    _conversationRecorder.onSessionCreated(session: receiveSessionState);
 
     bool quickSave = settings.quickSave && server.getState().session?.message == null;
     final quickSaveFromFavorites = settings.quickSaveFromFavorites && server.getState().session?.message == null;
@@ -240,6 +251,13 @@ class ReceiveController {
     });
 
     server.ref.notifier(selectedReceivingFilesProvider).setFiles(files.values.toList());
+
+    // P7c：conversation 标记的接收不推旧 ReceivePage——由会话面板内的接收卡片接管
+    // 接受/拒绝/进度/取消（按钮仍回调本控制器的同名动作）；presentation 映射在
+    // closeSession 才移除，此刻仍处于 waiting/sending，读取有效。legacy 路径零变化。
+    if (presentation == TransferPresentation.conversation) {
+      return;
+    }
 
     // ignore: use_build_context_synchronously, unawaited_futures
     Routerino.context.push(() => ReceivePage(receiveProvider));
@@ -420,6 +438,11 @@ class ReceiveController {
           ),
         ),
       );
+      // P7b：终态快照必须在任何 closeSession（含下方 quickSave 延迟清理）之前形成
+      _conversationRecorder.onTerminalSnapshot(
+        session: server.getState().session!,
+        outcome: hasError ? ConversationOutcome.partialFailure : ConversationOutcome.finished,
+      );
       final settings = server.ref.read(settingsProvider);
       // Only auto-close fully successful sessions: a failed file may still be
       // retried by the sender (e.g. after a checksum mismatch), which requires
@@ -544,6 +567,8 @@ class ReceiveController {
       // nothing selected, the Rust server responds with 204 and creates no session
       // This usually happens for message transfers
       server.ref.redux(parentIsolateProvider).dispatch(IsolateHttpServerPrepareUploadDecisionAction(config: _buildReceiveConfig(session, {})));
+      // P7b：消息请求被确认后文本已完整拿到（嵌在 preview 里）：先记 finished 再清理
+      _conversationRecorder.onMessageAccepted(session: session);
       closeSession();
       return;
     }
@@ -613,6 +638,9 @@ class ReceiveController {
     server.ref
         .redux(parentIsolateProvider)
         .dispatch(IsolateHttpServerPrepareUploadDecisionAction(config: _buildReceiveConfig(updatedSession, fileNameMap)));
+
+    // P7b：接受后进入 transferring，未勾选文件（desiredName 为空）标 skipped
+    _conversationRecorder.onAccepted(session: updatedSession);
   }
 
   HttpServerReceiveConfig _buildReceiveConfig(ReceiveSessionState session, Map<String, String> fileNameMap) {
@@ -633,6 +661,8 @@ class ReceiveController {
     }
 
     server.ref.redux(parentIsolateProvider).dispatch(IsolateHttpServerPrepareUploadDecisionAction(config: null));
+    // P7b：本端拒绝——先记终态再清理（成终后 closeSession 收口不覆盖）
+    _conversationRecorder.update(sessionId: session.sessionId, outcome: ConversationOutcome.declined);
     closeSession();
   }
 
@@ -692,12 +722,17 @@ class ReceiveController {
   }
 
   void closeSession() {
-    final sessionId = server.getStateOrNull()?.session?.sessionId;
+    final session = server.getStateOrNull()?.session;
+    final sessionId = session?.sessionId;
     if (sessionId == null) {
       return;
     }
 
     TransferNotification.stop(sessionId);
+
+    // P7b：收口快照必须在移除映射之前——remove 之后记录器的 guard 会挡掉一切写入；
+    // 也必须在 removeSession 清进度之前（快照需要读 fileTransferProvider 的实时状态）
+    _conversationRecorder.onClosing(session: session);
 
     // P7a：接收 session 清理时同步移除展示模式映射，防止泄漏（与发送侧 closeSession 一致）
     server.ref.notifier(transferPresentationProvider).remove(sessionId);
@@ -716,6 +751,9 @@ void _cancelBySender(ServerUtils server) {
   if (receiveSession == null) {
     return;
   }
+
+  // P7b：发送端取消——先记终态（本函数不关 session，后续 closeSession 收口遇终态跳过）
+  ConversationReceiveRecorder(server.ref).update(sessionId: receiveSession.sessionId, outcome: ConversationOutcome.canceledBySender);
 
   TransferNotification.stop(receiveSession.sessionId);
 

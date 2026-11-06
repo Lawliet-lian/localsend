@@ -108,6 +108,7 @@ class Translations$conversation$en {
   /// en: 'Send'
   String get send => 'Send';
 
+  late final Translations$conversation$receiveCard$en receiveCard = Translations$conversation$receiveCard$en.internal(_root);
   late final Translations$conversation$outcome$en outcome = Translations$conversation$outcome$en.internal(_root);
 }
 
@@ -981,6 +982,27 @@ class Translations$assetPicker$en {
 
   /// en: 'count'
   String get sUnitAssetCountLabel => 'count';
+}
+
+// Path: conversation.receiveCard
+class Translations$conversation$receiveCard$en {
+  Translations$conversation$receiveCard$en.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// en: 'Files from {name}'
+  String title({required Object name}) => 'Files from ${name}';
+
+  /// en: '{n} files'
+  String filesCount({required Object n}) => '${n} files';
+
+  /// en: '+{n} more'
+  String moreFiles({required Object n}) => '+${n} more';
+
+  /// en: 'The sender has canceled the request.'
+  String get canceled => 'The sender has canceled the request.';
 }
 
 // Path: conversation.outcome

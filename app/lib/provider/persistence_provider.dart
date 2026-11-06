@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:localsend_app/gen/strings.g.dart';
+import 'package:localsend_app/model/conversation/conversation_models.dart';
 import 'package:localsend_app/model/persistence/color_mode.dart';
 import 'package:localsend_app/model/persistence/favorite_device.dart';
 import 'package:localsend_app/model/persistence/quick_save_mode.dart';
@@ -57,6 +58,10 @@ const _receiveHistory = 'ls_receive_history';
 
 // Favorites
 const _favorites = 'ls_favorites';
+
+// Conversation history (P8): independent key, never rewrites the legacy receive-history key.
+// Stored as one JSON blob with its own schema version (see ConversationHistoryDto).
+const _conversationHistory = 'ls_conversation_history_v1';
 
 // App Window Offset and Size info
 const _windowOffsetX = 'ls_window_offset_x';
@@ -274,6 +279,24 @@ class PersistenceService {
   Future<void> setFavorites(List<FavoriteDevice> entries) async {
     final favoritesRaw = entries.map((entry) => jsonEncode(entry.toJson())).toList();
     await _prefs.setStringList(_favorites, favoritesRaw);
+  }
+
+  /// 读取会话历史（P8）。返回的 DTO **永不为 null**：无有效历史（键不存在 / 坏 JSON / 截断 /
+  /// schema 版本不符）时返回空信封（peers/entries 皆空），调用方直接按空会话处理。
+  /// （非空返回也让 mockito 能为本方法生成可打桩的 mock。）
+  /// 具体容错解析（逐条坏记录跳过、版本校验等）内聚在纯函数 [ConversationHistoryDto.decodeFromString]，便于单测。
+  ConversationHistoryDto getConversationHistory() {
+    final raw = _prefs.getString(_conversationHistory);
+    final history = ConversationHistoryDto.decodeFromString(raw);
+    // 有原始数据却解析为空：说明历史被损坏（不泄露正文，只记事实），不影响其它设置键
+    if (raw != null && history.entries.isEmpty && history.peers.isEmpty) {
+      _logger.warning('Conversation history present but unreadable; starting from empty');
+    }
+    return history;
+  }
+
+  Future<void> setConversationHistory(ConversationHistoryDto history) async {
+    await _prefs.setString(_conversationHistory, jsonEncode(history.toJson()));
   }
 
   String getShowToken() {

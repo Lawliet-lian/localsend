@@ -362,9 +362,9 @@ fvm flutter test
 - [x] P6b 发送生命周期记录。（见下方交接记录）
 - [x] P6c 纯文字输入发送。（见下方交接记录）
 - [x] P7a 接收展示模式。（见下方交接记录）
-- [ ] P7b 接收生命周期记录。
-- [ ] P7c 接收操作。
-- [ ] P8 有界持久化与隐私。
+- [x] P7b 接收生命周期记录。（见下方交接记录）
+- [x] P7c 接收操作。（见下方交接记录）
+- [x] P8 有界持久化与隐私。（见下方交接记录）
 - [ ] P9a 用户开关与清除。
 - [ ] P9b 附件发送。
 - [ ] P10 文案与代码生成。
@@ -490,6 +490,39 @@ fvm flutter test
 | 命令与结果 | `fvm flutter test <本批+ P6a 回归>`：10/10（新增 3 + presentation provider 7）。全量 `fvm flutter test`：**178/178**（175 基线 + 3 新增）。`fvm flutter analyze`：No issues found。`fvm dart format --set-exit-if-changed lib test`：0 changed。`fvm dart run build_runner build`：成功（仅 settings_state.mapper 更新，mocks 噪声已恢复）。 |
 | 已知问题 | 1) 开关目前无 UI（设置页开关属 P9a），只能代码/prefs 修改；且 conversation 标记在接收侧尚无可见效果——页面跳转仍走 legacy ReceivePage（P7c 才改路由，方案 L258：开关接入完成前接收统一 legacy，不提前开放不完整接收 UI）。2) 接收标记后 P7b 才写记录；本批只建映射不写会话。3) `_cancelBySender` 不关 session（既有行为），presentation 映射随后续 closeSession 清理，与 fileTransferProvider 节奏一致。4) SettingsState 新增 required 字段对旧持久化无影响（无 JSON 存档路径，init 从 prefs 默认 false）。 |
 | 下一批入口 | P7b 只读：`receive_controller.dart` 的 onPrepareUpload（登记 preparing/waiting）、acceptFileRequest（skipped 文件）、onFileUpload/onFileUploadResult（transferring/终态）、closeSession（终态快照必须在清理前：removeSession 会删 fileTransferProvider 进度）、_cancelBySender（canceledBySender）、declineFileRequest（declined）；复用 P6b 的 `ConversationSendRecorder` 模式但方向为 receive（entryId = 'receive:sessionId'，EnsureTransferEntryAction/UpsertTransferSnapshotAction 已支持 direction）。目标：仅 conversation 接收 session 写会话记录，legacy 不写；旧 receiveHistoryProvider 行为不变（双轨不重复）。门槛：sessionId 匹配；失败 session 不提前关闭；记录在清理前形成。 |
+
+### P7b 交接记录（2026-11-06）
+
+| 字段 | 内容 |
+| --- | --- |
+| 批次/日期 | P7b / 2026-11-06 |
+| 实际变更文件 | 新建：`app/lib/provider/network/conversation_receive_recorder.dart`（`ConversationReceiveRecorder`：onSessionCreated/onAccepted/onMessageAccepted/onTerminalSnapshot/onClosing/update 六个接入方法 + 同款 `outcomeFromFileStatus`；内部 `_isConversation` guard，legacy 全部空操作；entryId = 'receive:sessionId'）、`app/test/unit/provider/conversation_receive_recorder_test.dart`（13 用例）。修改：`app/lib/provider/network/server/controller/receive_controller.dart`（接入点：onPrepareUpload 把 ReceiveSessionState 提为局部变量后登记 waiting；acceptFileRequest 空选择分支先记消息 finished 再 closeSession、正常接受尾部记 onAccepted（skipped/pending + desiredName）；onFileUploadResult 全员完成后、quickSave 延迟 closeSession 之前记终态快照 finished/partialFailure；declineFileRequest 先记 declined 再清理；_cancelBySender（顶层函数，现场构造记录器）记 canceledBySender；closeSession 重排：先 onClosing 收口→再 presentation.remove→再清进度，顺序不可颠倒）。未动 Rust/isolate/协议/旧 receiveHistoryProvider/页面跳转。无新增用户可见文案，本批无需翻译。 |
+| 已验证行为 | 门槛：legacy 接收零记录（六个方法全调后 entries/peers 空）；sessionId 匹配（entryId 含 direction 前缀，与发送双向同 id 不冲突）；失败 session 不提前关闭（未动任何关闭逻辑，只加记录行）；记录在清理前形成（closeSession 内 onClosing 在 presentation.remove 与 removeSession 之前；quickSave 路径终态快照在延迟 closeSession 之前；收口不覆盖已记录终态 declined≠canceledByReceiver）；消息登记 kind=text 原文不 trim、preview 缺失时不分叉（单 text 无 preview = 普通文件传输）；desiredName 优先作展示名、未勾选 skipped；接收方向记录真实 path/savedToGallery/单文件错误；重复 upsert 不追加；未登记不凭空造记录。peer 展示用 senderAlias（收藏备注优先），指纹用 mTLS certFingerprint（不可伪造）。 |
+| 命令与结果 | `fvm flutter test <本批文件>`：13/13（一次通过）。全量 `fvm flutter test`：**191/191**（178 基线 + 13 新增）。`fvm flutter analyze`：No issues found。`fvm dart format --set-exit-if-changed lib test`：0 changed。 |
+| 已知问题 | 1) 开关关闭时接收记录不会发生（guard 拦截），端到端验证需 P9a 开关 UI 或手动改 prefs + P7c 才可见。2) canceledByReceiver 的 i18n 文案措辞是发送视角（“接收端已取消”类），接收气泡内展示会视角错位，属 P10 文案打磨（可按 direction 区分）。3) 接收重试（sender 对 failed 文件重传）会再次 onTerminalSnapshot，upsert 覆盖旧结果属预期。4) onClosing 收口的 canceledByReceiver 对“传输中离开页面”同样适用，但传输实际可能在 isolate 继续（既有行为），后续完成不会再补记录（presentation 已移除）。 |
+| 下一批入口 | P7c 只读：`conversation_panel.dart` 详情区（pending 卡片插入位置）、`serverProvider` 状态订阅（session 非空 = 有待决/进行中接收）、`receive_controller` 的 acceptFileRequest/declineFileRequest/cancelSession（卡片按钮直接复用，校验 sessionId 与方向）、P7a 的 presentation 判定（仅 conversation 标记的 session 在会话内展示；legacy 请求仍跳 ReceivePage，无双套按钮）。目标：会话内接受/拒绝/取消卡片 + 活跃传输进度展示；返回/缩放不取消传输。门槛：返回不拒绝；重复点击按钮无二次决策（waiting 状态 guard 已有）；legacy 请求在会话内无双按钮。 |
+
+### P7c 交接记录（2026-11-06）
+
+| 字段 | 内容 |
+| --- | --- |
+| 批次/日期 | P7c / 2026-11-06 |
+| 实际变更文件 | 新建：`app/lib/model/conversation/conversation_receive_card_vm.dart`（`ConversationReceiveCardVm`：session 只读投影 + 字节加权 `totalProgress` + `allFileNameMap`；纯函数 `conversationReceiveCardEligible`、`conversationReceiveCardForPeer`）、`app/lib/widget/conversation/conversation_receive_card.dart`（dumb StatefulWidget：waiting 勾选+接受/拒绝、sending 进度条+取消、canceledBySender 提示+关闭；局部 `_deselected` 不碰全局 selectedReceivingFilesProvider；禁止取消最后一个勾选）、两份测试。修改：`app/lib/pages/tabs/conversation_tab.dart`（顶层 `conversationReceiveCardProvider` ViewProvider：watch serverProvider.session + P7a presentation + fileTransferProvider 进度；卡片回调转发 serverProvider 同名动作）、`app/lib/widget/conversation/conversation_panel.dart`（新增 receiveCard/onReceiveAccept/onReceiveDecline/onReceiveCancel/onReceiveClose 参数，详情页顶栏与气泡区之间挂卡片，key 按 sessionId）、`app/lib/provider/network/server/controller/receive_controller.dart`（onPrepareUpload 末尾：presentation==conversation 时不 push 旧 ReceivePage 直接 return；legacy 路径零改动）、i18n 4 文件（conversation.receiveCard 的 title/filesCount/moreFiles/canceled，en/简体/繁体）→ slang 生成。未动 Rust/isolate/协议/旧 receiveHistoryProvider/quickSave 分支。 |
+| 已验证行为 | 门槛：legacy 请求在会话内无双按钮——`conversationReceiveCardEligible` 对 presentation!=conversation 恒 false，且 receive_controller 对 conversation 才跳过 push（旧 ReceivePage 仍为 legacy 唯一入口）；返回/缩放不取消传输——卡片无任何生命周期回调，消失仅因 session 清理，conversationUiProvider 仍只管展示；重复点击无二次决策——复用 acceptFileRequest/declineFileRequest 的 `status != waiting` guard。附加：卡片只属于对端设备（peerKey=session.sender 指纹派生，选中非对端不展示）；消息请求不建卡片（单 text+preview，已被自动确认写气泡）；默认全选、desiredName 优先、未勾选从 fileNameMap 剔除、禁止取消最后一个勾选；totalProgress 按字节加权、零大小安全；canceledBySender 仅关闭按钮；超 4 文件折叠。 |
+| 命令与结果 | 本批三文件 `fvm flutter test`：20/20（vm 纯函数 6 + card widget 5 + tab 接线 9，含原 P5/P6c）。全量 `fvm flutter test`：**205/205**（191 基线 + 14 新增）。`fvm flutter analyze`：No issues found。`fvm dart format --set-exit-if-changed lib test`：0 changed。`fvm dart run slang`：成功。修复过程三处：1) 卡片 State 内 `context.watch(fileTransferProvider)`（ChangeNotifierProvider）在 widget 测试下 pumpAndSettle 永不 settle → 卡片改为纯展示不订阅，进度刷新移交外层 conversationReceiveCardProvider watch；2) 列表项在 hasActiveReceive 时渲染无限旋转 CircularProgressIndicator（P4 既有）→ 相关 tab 测试 tap 后改用单帧 pump；3) 测试 override ViewProvider 的 builder 每次返回新 Vm 触发 identity 重建循环 → 改返回稳定实例。 |
+| 已知问题 | 1) quickSave 命中时 onPrepareUpload 更早已 push ProgressPage 并 return，仍走旧进度页（本批只拦截非 quickSave 的普通接收）。2) 端到端可见性仍依赖 P9a 开关 UI（当前需手动改 prefs 打开 conversationReceiveEnabled）。3) tab 接线测试的"点拒绝"走真实 ServerService 的 `session==null` no-op 分支，真实接受全链依赖 isolate 无法纯 Dart 覆盖，由 receive_controller 既有逻辑 + P7b 记录器测试背书。4) 卡片文件列表折叠只显示前 4 个、无展开页（第一版）。5) canceledBySender 卡片关闭按钮调 closeSession（仅清理，不发取消通知），与旧 ReceivePage 同状态语义一致。 |
+| 下一批入口 | P8 有界持久化与隐私。只读：`app/lib/provider/conversation_provider.dart`（内存摘要层，需为持久化定义独立 DTO 或补 dart_mappable）、`persistence_provider.dart`（参考 receiveHistoryProvider 的存储/裁剪演进路径）、`conversation_models.dart`（ConversationEntry/Peer 结构）。目标：会话记录有界持久化（上限裁剪、重启恢复、坏 JSON/截断容错、清空 tombstone 不复活）；写入失败不阻断传输。门槛：tombstone 重启应为空（否则跨重启误杀新记录）；存储 schema 版本化；legacy receiveHistoryProvider 保持独立不受影响。注意：P8 首次为 conversation 记录落盘，需评估与 P1 已验收模型文件的关系。 |
+
+### P8 交接记录（2026-11-06）
+
+| 字段 | 内容 |
+| --- | --- |
+| 批次/日期 | P8 / 2026-11-06 |
+| 实际变更文件 | 修改（手写业务，3 个）：`app/lib/model/conversation/conversation_models.dart`（新增 `conversationHistoryVersion=1` 常量 + `ConversationHistoryDto`（@MappableClass：version/peers/entries/truncatedEntryIds；`empty()` 工厂；`decodeFromString(String?)` 纯静态容错解析工厂）、`app/lib/provider/persistence_provider.dart`（独立键 `ls_conversation_history_v1`、`getConversationHistory()` 返回**非空** DTO（委派 decodeFromString，坏数据记一条脱敏 warning）、`setConversationHistory(dto)` jsonEncode 落盘）、`app/lib/provider/conversation_provider.dart`（`ConversationService([this._persistence])` 可空注入、`init()` 恢复并将非终态归一 incomplete、5 个变更 action 加 `after()=>schedulePersist()`、串行 latest-wins 队列 `_seq`+`_queue`、`_toPersistable` 四道裁剪：截断 2000/500 条/50 peer/2 MiB、`persistQueue` 仅供测试 drain）。修改（测试）：新建 `app/test/unit/model/conversation_history_dto_test.dart`（8）+ `app/test/unit/provider/conversation_persistence_test.dart`（7）；`conversation_tab_test.dart` 与 send/receive recorder 测试补 `persistenceProvider.overrideWithValue(MockPersistenceService)`（因 provider 现在依赖持久化链，沿用 favorite 测试先例）。生成：`conversation_models.mapper.dart`（ConversationHistoryDtoMapper）、`mocks.mocks.dart`（get/setConversationHistory）。未动 Rust/协议/isolate/旧 receiveHistoryProvider/原生工程/依赖。本批为存储层，无新增用户可见文案。 |
+| 已验证行为 | 门槛：①写入顺序 latest-wins——连续三次变更后串行合并、恰好落盘一次且为最终 3 条状态（陈旧写入被 `mySeq!=_seq` 守卫跳过）；②坏 JSON/截断/顶层非对象/schema 版本不符 → decodeFromString 均降级为空信封不抛异常；单条坏记录逐条跳过、其余保留；encode→decode 往返保真；③tombstone 重启为空——落盘 DTO 不含 clearedEntryIds，重启恢复后 `clearedEntryIds` 恒空、被清记录不复活；④写入失败不阻断——setConversationHistory 抛异常被 Future 链内部捕获，内存状态照常更新、不上抛。附加：活跃（非终态）记录重启归一 incomplete 不自动重发；超长文字落盘截断为 2000 并置 truncatedEntryIds、内存保留完整；peers 落盘裁到 50（内存不裁）、entries 落盘裁到 500（只淘汰最旧终态、活跃保留）。 |
+| 命令与结果 | 本批两文件 `fvm flutter test`：15/15（DTO 8 + persistence 7）。全量 `fvm flutter test`：**220/220**（205 基线 + 15 新增）。`fvm flutter analyze`：No issues found。`fvm dart format --set-exit-if-changed`（本批 8 文件）：0 changed。`fvm dart run build_runner build`：成功（ConversationHistoryDto mapper + mocks 重生）。修复过程四处：1) mockito 跳过可空返回方法生成 → getConversationHistory 改为非空 DTO；2) `build_runner clean` 误删已提交的 .mapper.dart → `git ls-files --deleted | xargs git checkout` 全量恢复（未涉 pbxproj）；3) latest-wins 用例 `verify(...).called(1)` 与后续 `lastWritten()` 重复 verify 冲突 → 改单次 verify 取 captured 同时断言次数与内容；4) provider 新增持久化依赖使 30 个既有测试（widget + 两 recorder）报 `persistenceProvider not initialized` → 按仓库先例给测试容器 override MockPersistenceService。 |
+| 已知问题 | 1) 2 MiB 字节淘汰循环在截断(2000)+条目(500)封顶后序列化约 1 MB 极难触达，属防御性代码，未写专项测试。2) 字节数以 `jsonEncode(...).length`（UTF-16 码元）近似，非严格 UTF-8 字节；作为上限守卫偏保守可接受。3) 持久化仅在开关打开产生会话记录时才会写入（无记录→空信封→不落盘）；端到端写入验证仍需 P9a 开关 UI。4) 存储为单个 JSON blob，与旧 receiveHistoryProvider 完全独立，互不影响。 |
+| 下一批入口 | P9a 用户开关与清除。只读：`settings_tab`/`settings 相关 provider`、`persistence_provider.dart`（会话接收开关 `ls_conversation_receive_enabled` 已有；需新开关/入口）、`conversation_provider.dart`（清除入口已有 RemoveConversationEntryAction/ClearPeer/ClearAll，需接 UI）。目标：新接收展示开关（默认关闭；切换不改变活跃请求）与历史清除入口（关闭历史不落盘）。门槛：默认关闭；开关切换不迁移/不影响进行中的活跃 session；关闭历史时不落盘。注意：清除 action 的 after() 已会 schedulePersist，清除后落盘的 DTO 自然不含 tombstone（P8 已保证）。 |
 
 ## 12. 停止与撤回策略
 

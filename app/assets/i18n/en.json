@@ -9,6 +9,12 @@
     "collapse": "Collapse",
     "composeHint": "Type a message…",
     "send": "Send",
+    "receiveCard": {
+      "title": "Files from {name}",
+      "filesCount": "{n} files",
+      "moreFiles": "+{n} more",
+      "canceled": "The sender has canceled the request."
+    },
     "outcome": {
       "preparing": "Preparing…",
       "waiting": "Waiting for response…",

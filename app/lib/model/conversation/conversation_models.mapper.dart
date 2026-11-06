@@ -895,3 +895,223 @@ class _ConversationFileSummaryCopyWithImpl<$R, $Out>
       _ConversationFileSummaryCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
+class ConversationHistoryDtoMapper
+    extends ClassMapperBase<ConversationHistoryDto> {
+  ConversationHistoryDtoMapper._();
+
+  static ConversationHistoryDtoMapper? _instance;
+  static ConversationHistoryDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = ConversationHistoryDtoMapper._());
+      ConversationPeerMapper.ensureInitialized();
+      ConversationEntryMapper.ensureInitialized();
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'ConversationHistoryDto';
+
+  static int _$version(ConversationHistoryDto v) => v.version;
+  static const Field<ConversationHistoryDto, int> _f$version = Field(
+    'version',
+    _$version,
+  );
+  static List<ConversationPeer> _$peers(ConversationHistoryDto v) => v.peers;
+  static const Field<ConversationHistoryDto, List<ConversationPeer>> _f$peers =
+      Field('peers', _$peers);
+  static List<ConversationEntry> _$entries(ConversationHistoryDto v) =>
+      v.entries;
+  static const Field<ConversationHistoryDto, List<ConversationEntry>>
+  _f$entries = Field('entries', _$entries);
+  static List<String> _$truncatedEntryIds(ConversationHistoryDto v) =>
+      v.truncatedEntryIds;
+  static const Field<ConversationHistoryDto, List<String>>
+  _f$truncatedEntryIds = Field(
+    'truncatedEntryIds',
+    _$truncatedEntryIds,
+    opt: true,
+    def: const [],
+  );
+
+  @override
+  final MappableFields<ConversationHistoryDto> fields = const {
+    #version: _f$version,
+    #peers: _f$peers,
+    #entries: _f$entries,
+    #truncatedEntryIds: _f$truncatedEntryIds,
+  };
+
+  static ConversationHistoryDto _instantiate(DecodingData data) {
+    return ConversationHistoryDto(
+      version: data.dec(_f$version),
+      peers: data.dec(_f$peers),
+      entries: data.dec(_f$entries),
+      truncatedEntryIds: data.dec(_f$truncatedEntryIds),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static ConversationHistoryDto fromJson(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<ConversationHistoryDto>(map);
+  }
+
+  static ConversationHistoryDto deserialize(String json) {
+    return ensureInitialized().decodeJson<ConversationHistoryDto>(json);
+  }
+}
+
+mixin ConversationHistoryDtoMappable {
+  String serialize() {
+    return ConversationHistoryDtoMapper.ensureInitialized()
+        .encodeJson<ConversationHistoryDto>(this as ConversationHistoryDto);
+  }
+
+  Map<String, dynamic> toJson() {
+    return ConversationHistoryDtoMapper.ensureInitialized()
+        .encodeMap<ConversationHistoryDto>(this as ConversationHistoryDto);
+  }
+
+  ConversationHistoryDtoCopyWith<
+    ConversationHistoryDto,
+    ConversationHistoryDto,
+    ConversationHistoryDto
+  >
+  get copyWith =>
+      _ConversationHistoryDtoCopyWithImpl<
+        ConversationHistoryDto,
+        ConversationHistoryDto
+      >(this as ConversationHistoryDto, $identity, $identity);
+  @override
+  String toString() {
+    return ConversationHistoryDtoMapper.ensureInitialized().stringifyValue(
+      this as ConversationHistoryDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return ConversationHistoryDtoMapper.ensureInitialized().equalsValue(
+      this as ConversationHistoryDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return ConversationHistoryDtoMapper.ensureInitialized().hashValue(
+      this as ConversationHistoryDto,
+    );
+  }
+}
+
+extension ConversationHistoryDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, ConversationHistoryDto, $Out> {
+  ConversationHistoryDtoCopyWith<$R, ConversationHistoryDto, $Out>
+  get $asConversationHistoryDto => $base.as(
+    (v, t, t2) => _ConversationHistoryDtoCopyWithImpl<$R, $Out>(v, t, t2),
+  );
+}
+
+abstract class ConversationHistoryDtoCopyWith<
+  $R,
+  $In extends ConversationHistoryDto,
+  $Out
+>
+    implements ClassCopyWith<$R, $In, $Out> {
+  ListCopyWith<
+    $R,
+    ConversationPeer,
+    ConversationPeerCopyWith<$R, ConversationPeer, ConversationPeer>
+  >
+  get peers;
+  ListCopyWith<
+    $R,
+    ConversationEntry,
+    ConversationEntryCopyWith<$R, ConversationEntry, ConversationEntry>
+  >
+  get entries;
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>>
+  get truncatedEntryIds;
+  $R call({
+    int? version,
+    List<ConversationPeer>? peers,
+    List<ConversationEntry>? entries,
+    List<String>? truncatedEntryIds,
+  });
+  ConversationHistoryDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  );
+}
+
+class _ConversationHistoryDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, ConversationHistoryDto, $Out>
+    implements
+        ConversationHistoryDtoCopyWith<$R, ConversationHistoryDto, $Out> {
+  _ConversationHistoryDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<ConversationHistoryDto> $mapper =
+      ConversationHistoryDtoMapper.ensureInitialized();
+  @override
+  ListCopyWith<
+    $R,
+    ConversationPeer,
+    ConversationPeerCopyWith<$R, ConversationPeer, ConversationPeer>
+  >
+  get peers => ListCopyWith(
+    $value.peers,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(peers: v),
+  );
+  @override
+  ListCopyWith<
+    $R,
+    ConversationEntry,
+    ConversationEntryCopyWith<$R, ConversationEntry, ConversationEntry>
+  >
+  get entries => ListCopyWith(
+    $value.entries,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(entries: v),
+  );
+  @override
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>>
+  get truncatedEntryIds => ListCopyWith(
+    $value.truncatedEntryIds,
+    (v, t) => ObjectCopyWith(v, $identity, t),
+    (v) => call(truncatedEntryIds: v),
+  );
+  @override
+  $R call({
+    int? version,
+    List<ConversationPeer>? peers,
+    List<ConversationEntry>? entries,
+    List<String>? truncatedEntryIds,
+  }) => $apply(
+    FieldCopyWithData({
+      if (version != null) #version: version,
+      if (peers != null) #peers: peers,
+      if (entries != null) #entries: entries,
+      if (truncatedEntryIds != null) #truncatedEntryIds: truncatedEntryIds,
+    }),
+  );
+  @override
+  ConversationHistoryDto $make(CopyWithData data) => ConversationHistoryDto(
+    version: data.get(#version, or: $value.version),
+    peers: data.get(#peers, or: $value.peers),
+    entries: data.get(#entries, or: $value.entries),
+    truncatedEntryIds: data.get(
+      #truncatedEntryIds,
+      or: $value.truncatedEntryIds,
+    ),
+  );
+
+  @override
+  ConversationHistoryDtoCopyWith<$R2, ConversationHistoryDto, $Out2>
+  $chain<$R2, $Out2>(Then<$Out2, $R2> t) =>
+      _ConversationHistoryDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+

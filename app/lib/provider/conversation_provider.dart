@@ -1,9 +1,21 @@
+import 'dart:convert';
+
 import 'package:localsend_app/model/conversation/conversation_models.dart';
+import 'package:localsend_app/provider/persistence_provider.dart';
+import 'package:logging/logging.dart';
 import 'package:refena_flutter/refena_flutter.dart';
+
+final _logger = Logger('ConversationService');
 
 /// 会话摘要层的内存上限（对应方案第 7 节的结束记录总边界）。
 /// 注意：活跃传输（非终态）的记录不参与裁剪，只删除最旧的终态记录。
 const _maxEntries = 500;
+
+// ---- 持久化限额（P8，方案第 7 节：50 设备 / 500 结束记录 / 2 MiB / 单条有界摘要）----
+const _maxPersistedPeers = 50;
+const _maxPersistedEntries = 500;
+const _maxPersistedBytes = 2 * 1024 * 1024; // 序列化内容有界（以 UTF-16 长度近似字节数）
+const _maxPersistedTextLen = 2000; // 单条文字/错误超过此长度则截断并置标志
 
 /// 终态判定辅助：只有终态记录才可被裁剪，活跃记录必须保留（方案第 7 节）。
 extension ConversationOutcomeTerminal on ConversationOutcome {
@@ -32,18 +44,138 @@ class ConversationState {
   });
 }
 
-/// 会话摘要 provider：P2 仅内存，持久化属于 P8（届时复用本状态并串行落盘）。
+/// 会话摘要 provider：内存 upsert（P2）+ 有界持久化（P8，变更经 `after()` 串行落盘）。
 ///
 /// 这里是第 5.3 节两个集成接口的落点：
 /// - [EnsureTransferEntryAction]：实际 session 创建后登记设备、方向、文件摘要和 sessionId。
 /// - [UpsertTransferSnapshotAction]：在明确状态事件与清理前同步更新内存摘要。
 final conversationProvider = ReduxProvider<ConversationService, ConversationState>((ref) {
-  return ConversationService();
+  return ConversationService(ref.read(persistenceProvider));
 });
 
 class ConversationService extends ReduxNotifier<ConversationState> {
+  /// 可空持久化：null = 纯内存（既有内存测试零改动、无落盘副作用）；生产注入 PersistenceService。
+  ConversationService([this._persistence]);
+
+  final PersistenceService? _persistence;
+
+  // 串行落盘状态：单调序号 + Future 链，实现"latest-wins、防旧写入覆盖新状态"（方案第 7 节）。
+  int _seq = 0;
+  Future<void> _queue = Future.value();
+
+  /// 测试可见：等待所有已排队的落盘任务完成（after() 是 fire-and-forget，测试需 drain 事件循环）。
+  Future<void> get persistQueue => _queue;
+
   @override
-  ConversationState init() => const ConversationState();
+  ConversationState init() {
+    final persistence = _persistence;
+    // 无持久化（纯内存测试）→ 空会话
+    if (persistence == null) {
+      return const ConversationState();
+    }
+    // getConversationHistory 永不为 null：坏 JSON/截断/版本不符已在其内部容错为空信封
+    final history = persistence.getConversationHistory();
+    if (history.entries.isEmpty && history.peers.isEmpty) {
+      return const ConversationState();
+    }
+    // 重启恢复：持久化时可能残留活跃（非终态）记录，一律转为 incomplete（"上次传输未完成"，
+    // 不自动重发）；tombstone 不持久化，故重启后 clearedEntryIds 恒为空（门槛）。
+    final entries = [
+      for (final e in history.entries) e.outcome.isTerminal ? e : e.copyWith(outcome: ConversationOutcome.incomplete),
+    ];
+    return ConversationState(peers: history.peers, entries: entries, clearedEntryIds: const {});
+  }
+
+  /// 由某个变更 action 的 after() 调用：排入一次串行落盘。
+  /// - 无持久化（纯内存测试）直接返回，零副作用；
+  /// - 用序号合并：只有"最后一次变更"真正落盘，中间态的排队写入在轮到自己时发现已被更新而跳过；
+  /// - 写入异常在链内部捕获并记脱敏日志，绝不抛出——传输/调用点不受影响（写入失败不阻断传输）。
+  void schedulePersist() {
+    final persistence = _persistence;
+    if (persistence == null) {
+      return;
+    }
+    final mySeq = ++_seq;
+    _queue = _queue.then((_) async {
+      // 已被更新的变更覆盖：跳过这次陈旧写入
+      if (mySeq != _seq) {
+        return;
+      }
+      try {
+        await persistence.setConversationHistory(_toPersistable(state));
+      } catch (e) {
+        // 只记录失败事实，不打印文字正文/路径等敏感内容
+        _logger.warning('Failed to persist conversation history (transfer unaffected)');
+      }
+    });
+  }
+
+  /// 把内存状态转换为有界、可持久化的 DTO：
+  /// ① 单条文字/错误超限截断并登记 truncatedEntryIds；
+  /// ② 记录数裁剪到 _maxPersistedEntries（只淘汰最旧终态，活跃记录保留）；
+  /// ③ 设备数裁剪到 _maxPersistedPeers；
+  /// ④ 序列化仍超 _maxPersistedBytes 时，继续从最旧终态记录淘汰直至达标。
+  ConversationHistoryDto _toPersistable(ConversationState s) {
+    // ① 截断过长文字/错误
+    final truncatedIds = <String>[];
+    var entries = <ConversationEntry>[];
+    for (final e in s.entries) {
+      final textTooLong = e.text != null && e.text!.length > _maxPersistedTextLen;
+      final errorTooLong = e.error != null && e.error!.length > _maxPersistedTextLen;
+      if (textTooLong || errorTooLong) {
+        truncatedIds.add(e.entryId);
+        entries.add(
+          e.copyWith(
+            text: textTooLong ? e.text!.substring(0, _maxPersistedTextLen) : e.text,
+            error: errorTooLong ? e.error!.substring(0, _maxPersistedTextLen) : e.error,
+          ),
+        );
+      } else {
+        entries.add(e);
+      }
+    }
+
+    // ② 记录数上限：从最旧开始淘汰终态记录，活跃记录不淘汰
+    entries = _evictTerminals(entries, _maxPersistedEntries);
+
+    // ③ 设备数上限：peers 按插入顺序，保留最近出现的 _maxPersistedPeers 个
+    var peers = s.peers;
+    if (peers.length > _maxPersistedPeers) {
+      peers = peers.sublist(peers.length - _maxPersistedPeers);
+    }
+
+    // ④ 字节上限：编码后仍超限则继续淘汰最旧终态记录（保留至少 1 条，避免清空有效数据）
+    var dto = ConversationHistoryDto(version: conversationHistoryVersion, peers: peers, entries: entries, truncatedEntryIds: truncatedIds);
+    while (entries.length > 1 && _encodedByteLength(dto) > _maxPersistedBytes) {
+      entries = _evictTerminals(entries, entries.length - 1);
+      final remainingIds = entries.map((e) => e.entryId).toSet();
+      dto = ConversationHistoryDto(
+        version: conversationHistoryVersion,
+        peers: peers,
+        entries: entries,
+        truncatedEntryIds: truncatedIds.where(remainingIds.contains).toList(),
+      );
+    }
+    return dto;
+  }
+
+  /// 从最旧开始淘汰终态记录到 [targetLength]；活跃（非终态）记录跳过。全部活跃则原样返回（宁超限不丢活跃）。
+  static List<ConversationEntry> _evictTerminals(List<ConversationEntry> entries, int targetLength) {
+    final result = [...entries];
+    while (result.length > targetLength) {
+      final evictIndex = result.indexWhere((e) => e.outcome.isTerminal);
+      if (evictIndex == -1) {
+        break;
+      }
+      result.removeAt(evictIndex);
+    }
+    return result;
+  }
+
+  /// 估算序列化后的字节规模（以 UTF-16 字符长度近似，用于 2 MiB 有界判断）。
+  static int _encodedByteLength(ConversationHistoryDto dto) {
+    return jsonEncode(dto.toJson()).length;
+  }
 }
 
 /// 登记一次真实传输：upsert 设备信息，并创建对应的传输记录（气泡）。
@@ -71,6 +203,10 @@ class EnsureTransferEntryAction extends ReduxAction<ConversationService, Convers
     this.text,
     this.initialOutcome = ConversationOutcome.preparing,
   });
+
+  // P8：登记后串行落盘（写入失败不阻断；纯内存测试无副作用）。
+  @override
+  void after() => notifier.schedulePersist();
 
   @override
   ConversationState reduce() {
@@ -128,6 +264,10 @@ class UpsertTransferSnapshotAction extends ReduxAction<ConversationService, Conv
 
   UpsertTransferSnapshotAction(this.entry);
 
+  // P8：快照变更后串行落盘；重复终态事件原位替换，不额外追加磁盘记录。
+  @override
+  void after() => notifier.schedulePersist();
+
   @override
   ConversationState reduce() {
     if (state.clearedEntryIds.contains(entry.entryId)) {
@@ -163,6 +303,10 @@ class RemoveConversationEntryAction extends ReduxAction<ConversationService, Con
 
   RemoveConversationEntryAction(this.entryId);
 
+  // P8：删除也走同一串行队列，防未完成的旧保存把已删记录写回（tombstone 本身不落盘）。
+  @override
+  void after() => notifier.schedulePersist();
+
   @override
   ConversationState reduce() {
     final index = state.entries.indexWhere((e) => e.entryId == entryId);
@@ -182,6 +326,10 @@ class ClearPeerEntriesAction extends ReduxAction<ConversationService, Conversati
 
   ClearPeerEntriesAction(this.peerKey);
 
+  // P8：清空某设备后走同一队列落盘，防陈旧写入把已清记录写回。
+  @override
+  void after() => notifier.schedulePersist();
+
   @override
   ConversationState reduce() {
     final removed = state.entries.where((e) => e.peerKey == peerKey).map((e) => e.entryId).toSet();
@@ -196,6 +344,10 @@ class ClearPeerEntriesAction extends ReduxAction<ConversationService, Conversati
 
 /// 清除全部记录（"清空全部会话"）。同样只清记录、不触碰文件与传输（方案第 7 节）。
 class ClearAllEntriesAction extends ReduxAction<ConversationService, ConversationState> {
+  // P8：清空全部同样走串行队列落盘。
+  @override
+  void after() => notifier.schedulePersist();
+
   @override
   ConversationState reduce() {
     if (state.entries.isEmpty) {

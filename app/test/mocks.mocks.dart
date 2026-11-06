@@ -3,22 +3,25 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i5;
-import 'dart:ui' as _i3;
+import 'dart:async' as _i6;
+import 'dart:ui' as _i4;
 
-import 'package:flutter/material.dart' as _i9;
-import 'package:localsend_app/gen/strings.g.dart' as _i11;
-import 'package:localsend_app/model/persistence/color_mode.dart' as _i10;
-import 'package:localsend_app/model/persistence/favorite_device.dart' as _i7;
-import 'package:localsend_app/model/persistence/quick_save_mode.dart' as _i12;
-import 'package:localsend_app/model/persistence/receive_history_entry.dart' as _i6;
-import 'package:localsend_app/model/send_mode.dart' as _i13;
-import 'package:localsend_app/provider/persistence_provider.dart' as _i4;
-import 'package:localsend_isolates/model/device.dart' as _i14;
+import 'package:flutter/material.dart' as _i10;
+import 'package:localsend_app/gen/strings.g.dart' as _i12;
+import 'package:localsend_app/model/conversation/conversation_models.dart'
+    as _i3;
+import 'package:localsend_app/model/persistence/color_mode.dart' as _i11;
+import 'package:localsend_app/model/persistence/favorite_device.dart' as _i8;
+import 'package:localsend_app/model/persistence/quick_save_mode.dart' as _i13;
+import 'package:localsend_app/model/persistence/receive_history_entry.dart'
+    as _i7;
+import 'package:localsend_app/model/send_mode.dart' as _i14;
+import 'package:localsend_app/provider/persistence_provider.dart' as _i5;
+import 'package:localsend_isolates/model/device.dart' as _i15;
 import 'package:localsend_isolates/model/stored_security_context.dart' as _i2;
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:mockito/src/dummies.dart' as _i8;
-import 'package:shared_preferences/shared_preferences.dart' as _i15;
+import 'package:mockito/src/dummies.dart' as _i9;
+import 'package:shared_preferences/shared_preferences.dart' as _i16;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -35,18 +38,28 @@ import 'package:shared_preferences/shared_preferences.dart' as _i15;
 // ignore_for_file: subtype_of_sealed_class
 // ignore_for_file: invalid_use_of_internal_member
 
-class _FakeStoredSecurityContext_0 extends _i1.SmartFake implements _i2.StoredSecurityContext {
-  _FakeStoredSecurityContext_0(Object parent, Invocation parentInvocation) : super(parent, parentInvocation);
+class _FakeStoredSecurityContext_0 extends _i1.SmartFake
+    implements _i2.StoredSecurityContext {
+  _FakeStoredSecurityContext_0(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
-class _FakeColor_1 extends _i1.SmartFake implements _i3.Color {
-  _FakeColor_1(Object parent, Invocation parentInvocation) : super(parent, parentInvocation);
+class _FakeConversationHistoryDto_1 extends _i1.SmartFake
+    implements _i3.ConversationHistoryDto {
+  _FakeConversationHistoryDto_1(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
+}
+
+class _FakeColor_2 extends _i1.SmartFake implements _i4.Color {
+  _FakeColor_2(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 /// A class which mocks [PersistenceService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService {
+class MockPersistenceService extends _i1.Mock
+    implements _i5.PersistenceService {
   @override
   bool get isFirstAppStart =>
       (super.noSuchMethod(
@@ -81,77 +94,103 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as _i2.StoredSecurityContext);
 
   @override
-  _i5.Future<void> setSecurityContext(_i2.StoredSecurityContext? context) =>
+  _i6.Future<void> setSecurityContext(_i2.StoredSecurityContext? context) =>
       (super.noSuchMethod(
             Invocation.method(#setSecurityContext, [context]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i5.Future<void> setSignalingServers(List<String>? servers) =>
+  _i6.Future<void> setSignalingServers(List<String>? servers) =>
       (super.noSuchMethod(
             Invocation.method(#setSignalingServers, [servers]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i5.Future<void> setStunServers(List<String>? servers) =>
+  _i6.Future<void> setStunServers(List<String>? servers) =>
       (super.noSuchMethod(
             Invocation.method(#setStunServers, [servers]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  List<_i6.ReceiveHistoryEntry> getReceiveHistory() =>
+  List<_i7.ReceiveHistoryEntry> getReceiveHistory() =>
       (super.noSuchMethod(
             Invocation.method(#getReceiveHistory, []),
-            returnValue: <_i6.ReceiveHistoryEntry>[],
-            returnValueForMissingStub: <_i6.ReceiveHistoryEntry>[],
+            returnValue: <_i7.ReceiveHistoryEntry>[],
+            returnValueForMissingStub: <_i7.ReceiveHistoryEntry>[],
           )
-          as List<_i6.ReceiveHistoryEntry>);
+          as List<_i7.ReceiveHistoryEntry>);
 
   @override
-  _i5.Future<void> setReceiveHistory(List<_i6.ReceiveHistoryEntry>? entries) =>
+  _i6.Future<void> setReceiveHistory(List<_i7.ReceiveHistoryEntry>? entries) =>
       (super.noSuchMethod(
             Invocation.method(#setReceiveHistory, [entries]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  List<_i7.FavoriteDevice> getFavorites() =>
+  List<_i8.FavoriteDevice> getFavorites() =>
       (super.noSuchMethod(
             Invocation.method(#getFavorites, []),
-            returnValue: <_i7.FavoriteDevice>[],
-            returnValueForMissingStub: <_i7.FavoriteDevice>[],
+            returnValue: <_i8.FavoriteDevice>[],
+            returnValueForMissingStub: <_i8.FavoriteDevice>[],
           )
-          as List<_i7.FavoriteDevice>);
+          as List<_i8.FavoriteDevice>);
 
   @override
-  _i5.Future<void> setFavorites(List<_i7.FavoriteDevice>? entries) =>
+  _i6.Future<void> setFavorites(List<_i8.FavoriteDevice>? entries) =>
       (super.noSuchMethod(
             Invocation.method(#setFavorites, [entries]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
+
+  @override
+  _i3.ConversationHistoryDto getConversationHistory() =>
+      (super.noSuchMethod(
+            Invocation.method(#getConversationHistory, []),
+            returnValue: _FakeConversationHistoryDto_1(
+              this,
+              Invocation.method(#getConversationHistory, []),
+            ),
+            returnValueForMissingStub: _FakeConversationHistoryDto_1(
+              this,
+              Invocation.method(#getConversationHistory, []),
+            ),
+          )
+          as _i3.ConversationHistoryDto);
+
+  @override
+  _i6.Future<void> setConversationHistory(
+    _i3.ConversationHistoryDto? history,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#setConversationHistory, [history]),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
 
   @override
   String getShowToken() =>
       (super.noSuchMethod(
             Invocation.method(#getShowToken, []),
-            returnValue: _i8.dummyValue<String>(
+            returnValue: _i9.dummyValue<String>(
               this,
               Invocation.method(#getShowToken, []),
             ),
-            returnValueForMissingStub: _i8.dummyValue<String>(
+            returnValueForMissingStub: _i9.dummyValue<String>(
               this,
               Invocation.method(#getShowToken, []),
             ),
@@ -162,11 +201,11 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
   String getAlias() =>
       (super.noSuchMethod(
             Invocation.method(#getAlias, []),
-            returnValue: _i8.dummyValue<String>(
+            returnValue: _i9.dummyValue<String>(
               this,
               Invocation.method(#getAlias, []),
             ),
-            returnValueForMissingStub: _i8.dummyValue<String>(
+            returnValueForMissingStub: _i9.dummyValue<String>(
               this,
               Invocation.method(#getAlias, []),
             ),
@@ -174,82 +213,82 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as String);
 
   @override
-  _i5.Future<void> setAlias(String? alias) =>
+  _i6.Future<void> setAlias(String? alias) =>
       (super.noSuchMethod(
             Invocation.method(#setAlias, [alias]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i9.ThemeMode getTheme() =>
+  _i10.ThemeMode getTheme() =>
       (super.noSuchMethod(
             Invocation.method(#getTheme, []),
-            returnValue: _i9.ThemeMode.system,
-            returnValueForMissingStub: _i9.ThemeMode.system,
+            returnValue: _i10.ThemeMode.system,
+            returnValueForMissingStub: _i10.ThemeMode.system,
           )
-          as _i9.ThemeMode);
+          as _i10.ThemeMode);
 
   @override
-  _i5.Future<void> setTheme(_i9.ThemeMode? theme) =>
+  _i6.Future<void> setTheme(_i10.ThemeMode? theme) =>
       (super.noSuchMethod(
             Invocation.method(#setTheme, [theme]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i10.ColorMode getColorMode() =>
+  _i11.ColorMode getColorMode() =>
       (super.noSuchMethod(
             Invocation.method(#getColorMode, []),
-            returnValue: _i10.ColorMode.system,
-            returnValueForMissingStub: _i10.ColorMode.system,
+            returnValue: _i11.ColorMode.system,
+            returnValueForMissingStub: _i11.ColorMode.system,
           )
-          as _i10.ColorMode);
+          as _i11.ColorMode);
 
   @override
-  _i5.Future<void> setColorMode(_i10.ColorMode? color) =>
+  _i6.Future<void> setColorMode(_i11.ColorMode? color) =>
       (super.noSuchMethod(
             Invocation.method(#setColorMode, [color]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i3.Color getCustomColor() =>
+  _i4.Color getCustomColor() =>
       (super.noSuchMethod(
             Invocation.method(#getCustomColor, []),
-            returnValue: _FakeColor_1(
+            returnValue: _FakeColor_2(
               this,
               Invocation.method(#getCustomColor, []),
             ),
-            returnValueForMissingStub: _FakeColor_1(
+            returnValueForMissingStub: _FakeColor_2(
               this,
               Invocation.method(#getCustomColor, []),
             ),
           )
-          as _i3.Color);
+          as _i4.Color);
 
   @override
-  _i5.Future<void> setCustomColor(_i3.Color? color) =>
+  _i6.Future<void> setCustomColor(_i4.Color? color) =>
       (super.noSuchMethod(
             Invocation.method(#setCustomColor, [color]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i5.Future<void> setLocale(_i11.AppLocale? locale) =>
+  _i6.Future<void> setLocale(_i12.AppLocale? locale) =>
       (super.noSuchMethod(
             Invocation.method(#setLocale, [locale]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
   int getPort() =>
@@ -261,31 +300,31 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as int);
 
   @override
-  _i5.Future<void> setPort(int? port) =>
+  _i6.Future<void> setPort(int? port) =>
       (super.noSuchMethod(
             Invocation.method(#setPort, [port]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i5.Future<void> setNetworkWhitelist(List<String>? whitelist) =>
+  _i6.Future<void> setNetworkWhitelist(List<String>? whitelist) =>
       (super.noSuchMethod(
             Invocation.method(#setNetworkWhitelist, [whitelist]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i5.Future<void> setNetworkBlacklist(List<String>? blacklist) =>
+  _i6.Future<void> setNetworkBlacklist(List<String>? blacklist) =>
       (super.noSuchMethod(
             Invocation.method(#setNetworkBlacklist, [blacklist]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
   int getDiscoveryTimeout() =>
@@ -297,13 +336,13 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as int);
 
   @override
-  _i5.Future<void> setDiscoveryTimeout(int? timeout) =>
+  _i6.Future<void> setDiscoveryTimeout(int? timeout) =>
       (super.noSuchMethod(
             Invocation.method(#setDiscoveryTimeout, [timeout]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
   bool getShareViaLinkAutoAccept() =>
@@ -315,15 +354,15 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as bool);
 
   @override
-  _i5.Future<void> setShareViaLinkAutoAccept(bool? shareViaLinkAutoAccept) =>
+  _i6.Future<void> setShareViaLinkAutoAccept(bool? shareViaLinkAutoAccept) =>
       (super.noSuchMethod(
             Invocation.method(#setShareViaLinkAutoAccept, [
               shareViaLinkAutoAccept,
             ]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
   bool getReceiveViaLinkAutoAccept() =>
@@ -335,17 +374,39 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as bool);
 
   @override
-  _i5.Future<void> setReceiveViaLinkAutoAccept(
+  _i6.Future<void> setReceiveViaLinkAutoAccept(
     bool? receiveViaLinkAutoAccept,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#setReceiveViaLinkAutoAccept, [
               receiveViaLinkAutoAccept,
             ]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
+
+  @override
+  bool getConversationReceiveEnabled() =>
+      (super.noSuchMethod(
+            Invocation.method(#getConversationReceiveEnabled, []),
+            returnValue: false,
+            returnValueForMissingStub: false,
+          )
+          as bool);
+
+  @override
+  _i6.Future<void> setConversationReceiveEnabled(
+    bool? conversationReceiveEnabled,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#setConversationReceiveEnabled, [
+              conversationReceiveEnabled,
+            ]),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
 
   @override
   bool getCreateChecksums() =>
@@ -357,13 +418,13 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as bool);
 
   @override
-  _i5.Future<void> setCreateChecksums(bool? createChecksums) =>
+  _i6.Future<void> setCreateChecksums(bool? createChecksums) =>
       (super.noSuchMethod(
             Invocation.method(#setCreateChecksums, [createChecksums]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
   bool getVerifyChecksums() =>
@@ -375,23 +436,23 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as bool);
 
   @override
-  _i5.Future<void> setVerifyChecksums(bool? verifyChecksums) =>
+  _i6.Future<void> setVerifyChecksums(bool? verifyChecksums) =>
       (super.noSuchMethod(
             Invocation.method(#setVerifyChecksums, [verifyChecksums]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
   String getMulticastGroup() =>
       (super.noSuchMethod(
             Invocation.method(#getMulticastGroup, []),
-            returnValue: _i8.dummyValue<String>(
+            returnValue: _i9.dummyValue<String>(
               this,
               Invocation.method(#getMulticastGroup, []),
             ),
-            returnValueForMissingStub: _i8.dummyValue<String>(
+            returnValueForMissingStub: _i9.dummyValue<String>(
               this,
               Invocation.method(#getMulticastGroup, []),
             ),
@@ -399,22 +460,22 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as String);
 
   @override
-  _i5.Future<void> setMulticastGroup(String? group) =>
+  _i6.Future<void> setMulticastGroup(String? group) =>
       (super.noSuchMethod(
             Invocation.method(#setMulticastGroup, [group]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i5.Future<void> setDestination(String? destination) =>
+  _i6.Future<void> setDestination(String? destination) =>
       (super.noSuchMethod(
             Invocation.method(#setDestination, [destination]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
   bool isSaveToGallery() =>
@@ -426,13 +487,13 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as bool);
 
   @override
-  _i5.Future<void> setSaveToGallery(bool? saveToGallery) =>
+  _i6.Future<void> setSaveToGallery(bool? saveToGallery) =>
       (super.noSuchMethod(
             Invocation.method(#setSaveToGallery, [saveToGallery]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
   bool isSaveToHistory() =>
@@ -444,13 +505,13 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as bool);
 
   @override
-  _i5.Future<void> setSaveToHistory(bool? saveToHistory) =>
+  _i6.Future<void> setSaveToHistory(bool? saveToHistory) =>
       (super.noSuchMethod(
             Invocation.method(#setSaveToHistory, [saveToHistory]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
   bool getAdvancedSettingsEnabled() =>
@@ -462,40 +523,40 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as bool);
 
   @override
-  _i5.Future<void> setAdvancedSettingsEnabled(bool? isEnabled) =>
+  _i6.Future<void> setAdvancedSettingsEnabled(bool? isEnabled) =>
       (super.noSuchMethod(
             Invocation.method(#setAdvancedSettingsEnabled, [isEnabled]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i12.QuickSaveMode getQuickSave() =>
+  _i13.QuickSaveMode getQuickSave() =>
       (super.noSuchMethod(
             Invocation.method(#getQuickSave, []),
-            returnValue: _i12.QuickSaveMode.off,
-            returnValueForMissingStub: _i12.QuickSaveMode.off,
+            returnValue: _i13.QuickSaveMode.off,
+            returnValueForMissingStub: _i13.QuickSaveMode.off,
           )
-          as _i12.QuickSaveMode);
+          as _i13.QuickSaveMode);
 
   @override
-  _i5.Future<void> setQuickSave(_i12.QuickSaveMode? mode) =>
+  _i6.Future<void> setQuickSave(_i13.QuickSaveMode? mode) =>
       (super.noSuchMethod(
             Invocation.method(#setQuickSave, [mode]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i5.Future<void> setReceivePin(String? pin) =>
+  _i6.Future<void> setReceivePin(String? pin) =>
       (super.noSuchMethod(
             Invocation.method(#setReceivePin, [pin]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
   bool isAutoFinish() =>
@@ -507,13 +568,13 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as bool);
 
   @override
-  _i5.Future<void> setAutoFinish(bool? autoFinish) =>
+  _i6.Future<void> setAutoFinish(bool? autoFinish) =>
       (super.noSuchMethod(
             Invocation.method(#setAutoFinish, [autoFinish]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
   bool isMinimizeToTray() =>
@@ -525,13 +586,13 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as bool);
 
   @override
-  _i5.Future<void> setMinimizeToTray(bool? minimizeToTray) =>
+  _i6.Future<void> setMinimizeToTray(bool? minimizeToTray) =>
       (super.noSuchMethod(
             Invocation.method(#setMinimizeToTray, [minimizeToTray]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
   bool isHttps() =>
@@ -543,76 +604,76 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as bool);
 
   @override
-  _i5.Future<void> setHttps(bool? https) =>
+  _i6.Future<void> setHttps(bool? https) =>
       (super.noSuchMethod(
             Invocation.method(#setHttps, [https]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i13.SendMode getSendMode() =>
+  _i14.SendMode getSendMode() =>
       (super.noSuchMethod(
             Invocation.method(#getSendMode, []),
-            returnValue: _i13.SendMode.single,
-            returnValueForMissingStub: _i13.SendMode.single,
+            returnValue: _i14.SendMode.single,
+            returnValueForMissingStub: _i14.SendMode.single,
           )
-          as _i13.SendMode);
+          as _i14.SendMode);
 
   @override
-  _i5.Future<void> setSendMode(_i13.SendMode? mode) =>
+  _i6.Future<void> setSendMode(_i14.SendMode? mode) =>
       (super.noSuchMethod(
             Invocation.method(#setSendMode, [mode]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i5.Future<void> setWindowOffsetX(double? x) =>
+  _i6.Future<void> setWindowOffsetX(double? x) =>
       (super.noSuchMethod(
             Invocation.method(#setWindowOffsetX, [x]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i5.Future<void> setWindowOffsetY(double? y) =>
+  _i6.Future<void> setWindowOffsetY(double? y) =>
       (super.noSuchMethod(
             Invocation.method(#setWindowOffsetY, [y]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i5.Future<void> setWindowHeight(double? height) =>
+  _i6.Future<void> setWindowHeight(double? height) =>
       (super.noSuchMethod(
             Invocation.method(#setWindowHeight, [height]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i5.Future<void> setWindowWidth(double? width) =>
+  _i6.Future<void> setWindowWidth(double? width) =>
       (super.noSuchMethod(
             Invocation.method(#setWindowWidth, [width]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i5.Future<void> setSaveWindowPlacement(bool? savePlacement) =>
+  _i6.Future<void> setSaveWindowPlacement(bool? savePlacement) =>
       (super.noSuchMethod(
             Invocation.method(#setSaveWindowPlacement, [savePlacement]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
   bool getSaveWindowPlacement() =>
@@ -624,13 +685,31 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as bool);
 
   @override
-  _i5.Future<void> setEnableAnimations(bool? enableAnimations) =>
+  _i6.Future<void> setAlwaysOnTop(bool? alwaysOnTop) =>
+      (super.noSuchMethod(
+            Invocation.method(#setAlwaysOnTop, [alwaysOnTop]),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
+
+  @override
+  bool getAlwaysOnTop() =>
+      (super.noSuchMethod(
+            Invocation.method(#getAlwaysOnTop, []),
+            returnValue: false,
+            returnValueForMissingStub: false,
+          )
+          as bool);
+
+  @override
+  _i6.Future<void> setEnableAnimations(bool? enableAnimations) =>
       (super.noSuchMethod(
             Invocation.method(#setEnableAnimations, [enableAnimations]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
   bool getEnableAnimations() =>
@@ -642,46 +721,46 @@ class MockPersistenceService extends _i1.Mock implements _i4.PersistenceService 
           as bool);
 
   @override
-  _i5.Future<void> setDeviceType(_i14.DeviceType? deviceType) =>
+  _i6.Future<void> setDeviceType(_i15.DeviceType? deviceType) =>
       (super.noSuchMethod(
             Invocation.method(#setDeviceType, [deviceType]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i5.Future<void> setDeviceModel(String? deviceModel) =>
+  _i6.Future<void> setDeviceModel(String? deviceModel) =>
       (super.noSuchMethod(
             Invocation.method(#setDeviceModel, [deviceModel]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i5.Future<void> setWhatsNew(String? version) =>
+  _i6.Future<void> setWhatsNew(String? version) =>
       (super.noSuchMethod(
             Invocation.method(#setWhatsNew, [version]),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 
   @override
-  _i5.Future<void> clear() =>
+  _i6.Future<void> clear() =>
       (super.noSuchMethod(
             Invocation.method(#clear, []),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 }
 
 /// A class which mocks [SharedPreferences].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockSharedPreferences extends _i1.Mock implements _i15.SharedPreferences {
+class MockSharedPreferences extends _i1.Mock implements _i16.SharedPreferences {
   @override
   Set<String> getKeys() =>
       (super.noSuchMethod(
@@ -749,83 +828,83 @@ class MockSharedPreferences extends _i1.Mock implements _i15.SharedPreferences {
           as List<String>?);
 
   @override
-  _i5.Future<bool> setBool(String? key, bool? value) =>
+  _i6.Future<bool> setBool(String? key, bool? value) =>
       (super.noSuchMethod(
             Invocation.method(#setBool, [key, value]),
-            returnValue: _i5.Future<bool>.value(false),
-            returnValueForMissingStub: _i5.Future<bool>.value(false),
+            returnValue: _i6.Future<bool>.value(false),
+            returnValueForMissingStub: _i6.Future<bool>.value(false),
           )
-          as _i5.Future<bool>);
+          as _i6.Future<bool>);
 
   @override
-  _i5.Future<bool> setInt(String? key, int? value) =>
+  _i6.Future<bool> setInt(String? key, int? value) =>
       (super.noSuchMethod(
             Invocation.method(#setInt, [key, value]),
-            returnValue: _i5.Future<bool>.value(false),
-            returnValueForMissingStub: _i5.Future<bool>.value(false),
+            returnValue: _i6.Future<bool>.value(false),
+            returnValueForMissingStub: _i6.Future<bool>.value(false),
           )
-          as _i5.Future<bool>);
+          as _i6.Future<bool>);
 
   @override
-  _i5.Future<bool> setDouble(String? key, double? value) =>
+  _i6.Future<bool> setDouble(String? key, double? value) =>
       (super.noSuchMethod(
             Invocation.method(#setDouble, [key, value]),
-            returnValue: _i5.Future<bool>.value(false),
-            returnValueForMissingStub: _i5.Future<bool>.value(false),
+            returnValue: _i6.Future<bool>.value(false),
+            returnValueForMissingStub: _i6.Future<bool>.value(false),
           )
-          as _i5.Future<bool>);
+          as _i6.Future<bool>);
 
   @override
-  _i5.Future<bool> setString(String? key, String? value) =>
+  _i6.Future<bool> setString(String? key, String? value) =>
       (super.noSuchMethod(
             Invocation.method(#setString, [key, value]),
-            returnValue: _i5.Future<bool>.value(false),
-            returnValueForMissingStub: _i5.Future<bool>.value(false),
+            returnValue: _i6.Future<bool>.value(false),
+            returnValueForMissingStub: _i6.Future<bool>.value(false),
           )
-          as _i5.Future<bool>);
+          as _i6.Future<bool>);
 
   @override
-  _i5.Future<bool> setStringList(String? key, List<String>? value) =>
+  _i6.Future<bool> setStringList(String? key, List<String>? value) =>
       (super.noSuchMethod(
             Invocation.method(#setStringList, [key, value]),
-            returnValue: _i5.Future<bool>.value(false),
-            returnValueForMissingStub: _i5.Future<bool>.value(false),
+            returnValue: _i6.Future<bool>.value(false),
+            returnValueForMissingStub: _i6.Future<bool>.value(false),
           )
-          as _i5.Future<bool>);
+          as _i6.Future<bool>);
 
   @override
-  _i5.Future<bool> remove(String? key) =>
+  _i6.Future<bool> remove(String? key) =>
       (super.noSuchMethod(
             Invocation.method(#remove, [key]),
-            returnValue: _i5.Future<bool>.value(false),
-            returnValueForMissingStub: _i5.Future<bool>.value(false),
+            returnValue: _i6.Future<bool>.value(false),
+            returnValueForMissingStub: _i6.Future<bool>.value(false),
           )
-          as _i5.Future<bool>);
+          as _i6.Future<bool>);
 
   @override
-  _i5.Future<bool> commit() =>
+  _i6.Future<bool> commit() =>
       (super.noSuchMethod(
             Invocation.method(#commit, []),
-            returnValue: _i5.Future<bool>.value(false),
-            returnValueForMissingStub: _i5.Future<bool>.value(false),
+            returnValue: _i6.Future<bool>.value(false),
+            returnValueForMissingStub: _i6.Future<bool>.value(false),
           )
-          as _i5.Future<bool>);
+          as _i6.Future<bool>);
 
   @override
-  _i5.Future<bool> clear() =>
+  _i6.Future<bool> clear() =>
       (super.noSuchMethod(
             Invocation.method(#clear, []),
-            returnValue: _i5.Future<bool>.value(false),
-            returnValueForMissingStub: _i5.Future<bool>.value(false),
+            returnValue: _i6.Future<bool>.value(false),
+            returnValueForMissingStub: _i6.Future<bool>.value(false),
           )
-          as _i5.Future<bool>);
+          as _i6.Future<bool>);
 
   @override
-  _i5.Future<void> reload() =>
+  _i6.Future<void> reload() =>
       (super.noSuchMethod(
             Invocation.method(#reload, []),
-            returnValue: _i5.Future<void>.value(),
-            returnValueForMissingStub: _i5.Future<void>.value(),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
           )
-          as _i5.Future<void>);
+          as _i6.Future<void>);
 }

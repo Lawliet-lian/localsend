@@ -4,21 +4,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/conversation/conversation_models.dart';
+import 'package:localsend_app/model/conversation/conversation_receive_card_vm.dart';
 import 'package:localsend_app/model/conversation/transfer_presentation.dart';
 import 'package:localsend_app/model/cross_file.dart';
+import 'package:localsend_app/model/state/server/receive_session_state.dart';
+import 'package:localsend_app/model/state/server/receiving_file.dart';
 import 'package:localsend_app/pages/tabs/conversation_tab.dart';
 import 'package:localsend_app/provider/conversation_provider.dart';
 import 'package:localsend_app/provider/conversation_ui_provider.dart';
 import 'package:localsend_app/provider/conversation_view_provider.dart';
 import 'package:localsend_app/provider/network/send_provider.dart';
+import 'package:localsend_app/provider/persistence_provider.dart';
+import 'package:localsend_app/widget/conversation/conversation_receive_card.dart';
 import 'package:localsend_isolates/model/device.dart';
+import 'package:localsend_isolates/model/dto/file_dto.dart';
 import 'package:localsend_isolates/model/file_type.dart';
+import 'package:localsend_isolates/model/session_status.dart';
+import 'package:mockito/mockito.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 
-/// P5 会话入口接线测试 + P6c 文字发送接线测试。
+import '../mocks.mocks.dart';
+
+/// P5 会话入口接线测试 + P6c 文字发送接线测试 + P7c 接收卡片接线测试。
 /// 用 overrideWithBuilder 注入 fake 投影结果，不启动 Rust/isolate（方案 9.1）；
 /// 发送路径用 fake SendNotifier 替换（startSession 真实实现依赖 Rust http）；
-/// conversationProvider 与 conversationUiProvider 使用真实实例（纯内存、无持久化依赖）。
+/// 接收卡片用 override 后的 conversationReceiveCardProvider 注入（真实 provider 需碰
+/// ServerService/settings 持久化链）；peer 匹配逻辑走真实代码（session.sender 指纹）；
+/// conversationUiProvider 使用真实实例；conversationProvider（P8）依赖 persistenceProvider，
+/// 故用 MockPersistenceService 覆盖并回空历史（不落盘，等价于纯内存投影）。
 
 /// 替换真实发送：只记录调用参数，不碰网络
 /// （验证 presentation=conversation 接线与原文编码，不验证传输本身）
@@ -42,6 +55,7 @@ void main() {
     String alias = 'Fake Peer',
     bool online = true,
     Device? device,
+    bool hasActiveReceive = false,
   }) {
     return ConversationPeerView(
       peerKey: peerKey,
@@ -64,7 +78,7 @@ void main() {
       ),
       entryCount: 1,
       hasActiveSend: false,
-      hasActiveReceive: false,
+      hasActiveReceive: hasActiveReceive,
     );
   }
 
@@ -82,9 +96,15 @@ void main() {
     List<ProviderOverride> overrides = const [],
   }) async {
     setWindow(tester, width);
+    // P8：conversationProvider 现在会读取 persistenceProvider（无 override 则抛异常）。
+    // 这里注入一个返回空历史的 mock：init() 走纯内存起点，after() 落盘为 mock no-op，
+    // 与旧有"纯内存、不碰磁盘"的接线测试契约等价。
+    final persistence = MockPersistenceService();
+    when(persistence.getConversationHistory()).thenReturn(ConversationHistoryDto.empty());
     await tester.pumpWidget(
       RefenaScope(
         overrides: [
+          persistenceProvider.overrideWithValue(persistence),
           conversationPeerViewsProvider.overrideWithBuilder((_) => views),
           ...overrides,
         ],
@@ -262,5 +282,100 @@ void main() {
     expect(sendNotifier.calls, isEmpty);
     // 离线仍可查看历史：详情顶栏展示离线提示
     expect(find.text(t.conversation.offline), findsOneWidget);
+  });
+
+  // ---- P7c 接收卡片接线 ----
+
+  ReceiveSessionState vmSession({String fingerprint = 'AA:BB'}) {
+    return ReceiveSessionState(
+      sessionId: 'session-r1',
+      status: SessionStatus.waiting,
+      sender: onlineDevice().copyWith(fingerprint: fingerprint),
+      senderAlias: 'Nick',
+      files: {
+        'f1': ReceivingFile(
+          file: FileDto(id: 'f1', fileName: 'photo.jpg', size: 100, fileType: FileType.image, hash: null, preview: null, metadata: null),
+          token: null,
+          desiredName: null,
+          path: null,
+          savedToGallery: false,
+          errorMessage: null,
+        ),
+      },
+      startTime: null,
+      endTime: null,
+      destinationDirectory: '/tmp',
+      cacheDirectory: '/tmp/cache',
+      saveToGallery: false,
+      createdDirectories: {},
+    );
+  }
+
+  ConversationReceiveCardVm cardVm({String fingerprint = 'AA:BB'}) {
+    return ConversationReceiveCardVm(
+      session: vmSession(fingerprint: fingerprint),
+      progressOf: (_) => 0,
+    );
+  }
+
+  testWidgets('P7c 选中对端设备：卡片渲染；点拒绝转发 declineFileRequest 不报错', (tester) async {
+    // 必须传入稳定实例：ViewProvider 按 identity 比较，builder 每次新 VM 会造成重建循环
+    final card = cardVm();
+    await pumpTab(
+      tester,
+      width: 1000,
+      // 设备 peerKey 必须等于 peerKeyFor(session.sender.fingerprint='AA:BB') = 'fp:aa:bb'，匹配才渲染卡片
+      views: [fakeView('fp:aa:bb', alias: 'Real Device', device: onlineDevice(), hasActiveReceive: true)],
+      onRef: (_) {},
+      overrides: [conversationReceiveCardProvider.overrideWithBuilder((_) => card)],
+    );
+
+    await tester.tap(find.text('Real Device'));
+    // 有活跃接收时列表项是无限旋转的 CircularProgressIndicator，不能 pumpAndSettle（会超时），用单帧 pump
+    await tester.pump();
+
+    // 卡片只属于对端设备：peerKey 匹配走真实逻辑（fp:aa:bb ↔ 指纹 AA:BB）
+    expect(find.byType(ConversationReceiveCard), findsOneWidget);
+    expect(find.text(t.conversation.receiveCard.title(name: 'Nick')), findsOneWidget);
+
+    // 真实 ServerService 的 declineFileRequest：state 为 null 时首行 guard 直接 return（安全 no-op）；
+    // 本点击验证的是接线可达性——按钮存在且可点击不抛异常
+    await tester.tap(find.text(t.general.decline));
+    await tester.pump();
+    expect(find.byType(ConversationReceiveCard), findsOneWidget);
+  });
+
+  testWidgets('P7c 选中非对端设备：卡片不展示（无双套按钮串设备）', (tester) async {
+    final card = cardVm(fingerprint: 'BB:CC');
+    await pumpTab(
+      tester,
+      width: 1000,
+      // session 对端指纹 BB:CC → peerKey fp:bb:cc，与选中设备 fp:aa:bb 不匹配
+      views: [fakeView('fp:aa:bb', alias: 'Real Device', device: onlineDevice(), hasActiveReceive: true)],
+      onRef: (_) {},
+      overrides: [conversationReceiveCardProvider.overrideWithBuilder((_) => card)],
+    );
+
+    await tester.tap(find.text('Real Device'));
+    await tester.pump();
+
+    expect(find.byType(ConversationReceiveCard), findsNothing);
+  });
+
+  testWidgets('P7c 无卡片投影（legacy/无 session）：详情页无接收卡片', (tester) async {
+    await pumpTab(
+      tester,
+      width: 1000,
+      views: [fakeView('fp:aaa', alias: 'Real Device', device: onlineDevice())],
+      onRef: (_) {},
+      overrides: [conversationReceiveCardProvider.overrideWithBuilder((_) => null)],
+    );
+
+    await tester.tap(find.text('Real Device'));
+    await tester.pump();
+
+    expect(find.byType(ConversationReceiveCard), findsNothing);
+    // 原有功能不受影响：输入栏仍在
+    expect(find.byIcon(Icons.send), findsOneWidget);
   });
 }

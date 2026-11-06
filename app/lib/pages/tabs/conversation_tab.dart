@@ -3,12 +3,17 @@ import 'dart:convert';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:localsend_app/model/conversation/conversation_models.dart';
+import 'package:localsend_app/model/conversation/conversation_receive_card_vm.dart';
 import 'package:localsend_app/model/conversation/transfer_presentation.dart';
 import 'package:localsend_app/model/cross_file.dart';
 import 'package:localsend_app/provider/conversation_provider.dart';
 import 'package:localsend_app/provider/conversation_ui_provider.dart';
 import 'package:localsend_app/provider/conversation_view_provider.dart';
+import 'package:localsend_app/provider/file_transfer_provider.dart';
 import 'package:localsend_app/provider/network/send_provider.dart';
+import 'package:localsend_app/provider/network/server/server_provider.dart';
+import 'package:localsend_app/provider/transfer_presentation_provider.dart';
 import 'package:localsend_app/widget/conversation/conversation_panel.dart';
 import 'package:localsend_isolates/model/file_type.dart';
 import 'package:refena_flutter/refena_flutter.dart';
@@ -16,11 +21,36 @@ import 'package:uuid/uuid.dart';
 
 const _uuid = Uuid();
 
+/// 会话内接收卡片的投影 provider（P7c）：合并 serverProvider 的活跃 session、
+/// P7a 固定的 presentation 映射与 fileTransferProvider 的实时进度读取。
+///
+/// 独立成顶层 provider 是为了可测试（widget 测试可直接 override 注入卡片），
+/// 不模仿真实 ServerService 状态；判定逻辑本身在纯函数
+/// [conversationReceiveCardEligible]（已单测覆盖）。
+final conversationReceiveCardProvider = ViewProvider((ref) {
+  final session = ref.watch(serverProvider.select((state) => state?.session));
+  if (session == null) {
+    return null;
+  }
+  final presentation = ref.watch(transferPresentationProvider.select((p) => p[session.sessionId] ?? TransferPresentation.legacy));
+  if (!conversationReceiveCardEligible(session: session, presentation: presentation)) {
+    return null;
+  }
+  // watch 进度源：sending 时逐文件进度事件重建本 provider → 新 vm → 卡片刷新
+  // （卡片自身不订阅 provider，避免在面板子树内直接 watch ChangeNotifierProvider）
+  ref.watch(fileTransferProvider);
+  return ConversationReceiveCardVm(
+    session: session,
+    progressOf: (fileId) => ref.read(fileTransferProvider).getProgress(sessionId: session.sessionId, fileId: fileId),
+  );
+});
+
 /// "会话"入口 tab（方案 6.1）：把 P3 显示投影与 P2 UI 状态接线到 P4 面板，
-/// 并提供 P6c 纯文字发送。
+/// 并提供 P6c 纯文字发送与 P7c 接收卡片。
 ///
 /// 本文件只做接线：watch + 回调转发 + 消息 CrossFile 构造（沿用 AddMessageAction
 /// 的协议格式：单 text 文件 + UTF8 bytes，发送侧在 startSession 内嵌 preview）；
+/// 接收卡片按钮全部转发 serverProvider 同名动作，传输控制仍归属原有 provider；
 /// 旧入口（接收/发送/设置）行为完全不变，会话 tab 追加在首页 enum 末尾。
 class ConversationTab extends StatelessWidget {
   const ConversationTab({super.key});
@@ -33,6 +63,15 @@ class ConversationTab extends StatelessWidget {
     // 记录全集由面板按选中 peerKey 过滤
     final entries = context.watch(conversationProvider.select((state) => state.entries));
     final ui = context.watch(conversationUiProvider);
+
+    // P7c 接收卡片：投影层已按 eligibility 判定；卡片内部自行订阅进度（不高频重建本 tab）
+    final cardVm = context.watch(conversationReceiveCardProvider);
+    // 卡片只属于对端设备：未选中/选中别人时不展示（列表角标 hasActiveReceive 负责提醒）
+    final showCardForSelected = conversationReceiveCardForPeer(
+      vm: cardVm,
+      selectedPeerKey: ui.selectedPeerKey,
+      peerKeyFor: ConversationPeer.peerKeyFor,
+    );
 
     return ConversationPanel(
       views: views,
@@ -56,6 +95,13 @@ class ConversationTab extends StatelessWidget {
         }
       },
       onSendText: (text) => _sendText(ref, views, ui.selectedPeerKey, text),
+      // P7c：卡片与按钮回调全部转发 serverProvider 原有动作；重复点击安全：
+      // acceptFileRequest/declineFileRequest 内部已有 status != waiting 的 guard（门槛）
+      receiveCard: showCardForSelected ? cardVm : null,
+      onReceiveAccept: (fileNameMap) => ref.notifier(serverProvider).acceptFileRequest(fileNameMap),
+      onReceiveDecline: () => ref.notifier(serverProvider).declineFileRequest(),
+      onReceiveCancel: () => ref.notifier(serverProvider).cancelSession(),
+      onReceiveClose: () => ref.notifier(serverProvider).closeSession(),
     );
   }
 

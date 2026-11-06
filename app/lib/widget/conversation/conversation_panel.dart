@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/conversation/conversation_models.dart';
+import 'package:localsend_app/model/conversation/conversation_receive_card_vm.dart';
 import 'package:localsend_app/provider/conversation_view_provider.dart';
 import 'package:localsend_app/util/device_type_ext.dart';
 import 'package:localsend_app/widget/conversation/conversation_composer.dart';
 import 'package:localsend_app/widget/conversation/conversation_entry_tile.dart';
 import 'package:localsend_app/widget/conversation/conversation_list.dart';
+import 'package:localsend_app/widget/conversation/conversation_receive_card.dart';
 import 'package:localsend_app/widget/responsive_builder.dart';
 
 /// 会话面板：设备列表 + 会话详情的响应式组合（方案 6.1）。
@@ -16,7 +18,8 @@ import 'package:localsend_app/widget/responsive_builder.dart';
 /// - 窗口 700~799 一律单栏；窄屏从列表进入详情，在同一容器内切换（PopScope 返回，不 push 第二套页面）；
 /// - 宽度切换时选中状态由调用方 provider 持有（conversationUiProvider），本组件不保存私有选中状态。
 ///
-/// 纯展示 + 文字提交（P4/P6c）：无接受/拒绝按钮、无取消能力——分别属 P7c/P8，
+/// 纯展示 + 文字提交（P4/P6c）+ 接收卡片挂载点（P7c）：本组件自身无接受/拒绝能力，
+/// 卡片回调由接线层转发回 serverProvider 原有动作，
 /// 传输控制始终归属原有 provider（第 4 节不变量 1）。
 class ConversationPanel extends StatelessWidget {
   final List<ConversationPeerView> views;
@@ -42,6 +45,17 @@ class ConversationPanel extends StatelessWidget {
   /// 发送纯文字消息（原文未 trim；接线层发起 conversation 发送，P6c）。
   final ValueChanged<String> onSendText;
 
+  /// 会话内接收卡片（P7c）：仅当活跃 conversation 接收 session 的对端是
+  /// **当前选中设备**时由接线层传入；legacy/无 session 为 null，详情页不渲染。
+  final ConversationReceiveCardVm? receiveCard;
+
+  /// 卡片按钮回调：接受（携带勾选固化后的 fileNameMap）/拒绝/取消/关闭，
+  /// 全部转发 serverProvider 同名动作；本组件不做任何决策判断。
+  final void Function(Map<String, String> fileNameMap)? onReceiveAccept;
+  final VoidCallback? onReceiveDecline;
+  final VoidCallback? onReceiveCancel;
+  final VoidCallback? onReceiveClose;
+
   const ConversationPanel({
     super.key,
     required this.views,
@@ -51,6 +65,11 @@ class ConversationPanel extends StatelessWidget {
     required this.draftText,
     required this.onDraftChanged,
     required this.onSendText,
+    this.receiveCard,
+    this.onReceiveAccept,
+    this.onReceiveDecline,
+    this.onReceiveCancel,
+    this.onReceiveClose,
     this.showDetailOnNarrow = true,
   });
 
@@ -140,6 +159,12 @@ class ConversationPanel extends StatelessWidget {
       draftText: draftText,
       onDraftChanged: onDraftChanged,
       onSendText: onSendText,
+      // P7c：卡片已在接线层按选中 peer 匹配，这里直接挂载
+      receiveCard: receiveCard,
+      onReceiveAccept: onReceiveAccept,
+      onReceiveDecline: onReceiveDecline,
+      onReceiveCancel: onReceiveCancel,
+      onReceiveClose: onReceiveClose,
     );
   }
 
@@ -151,7 +176,7 @@ class ConversationPanel extends StatelessWidget {
   }
 }
 
-/// 会话详情：顶栏（设备名 + 在线状态）+ 气泡区 + 输入栏（P6c）。
+/// 会话详情：顶栏（设备名 + 在线状态）+ 接收卡片（P7c）+ 气泡区 + 输入栏（P6c）。
 class _ConversationDetail extends StatelessWidget {
   final ConversationPeerView view;
   final List<ConversationEntry> entries;
@@ -160,6 +185,11 @@ class _ConversationDetail extends StatelessWidget {
   final String draftText;
   final ValueChanged<String> onDraftChanged;
   final ValueChanged<String> onSendText;
+  final ConversationReceiveCardVm? receiveCard;
+  final void Function(Map<String, String> fileNameMap)? onReceiveAccept;
+  final VoidCallback? onReceiveDecline;
+  final VoidCallback? onReceiveCancel;
+  final VoidCallback? onReceiveClose;
 
   const _ConversationDetail({
     required this.view,
@@ -169,6 +199,11 @@ class _ConversationDetail extends StatelessWidget {
     required this.draftText,
     required this.onDraftChanged,
     required this.onSendText,
+    required this.receiveCard,
+    required this.onReceiveAccept,
+    required this.onReceiveDecline,
+    required this.onReceiveCancel,
+    required this.onReceiveClose,
   });
 
   @override
@@ -212,6 +247,17 @@ class _ConversationDetail extends StatelessWidget {
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
             ),
+          ),
+        // 接收卡片（P7c）：静止在顶栏与气泡区之间；key 按 sessionId 重建，
+        // 切 session 时局部勾选状态天然不残留（卡片消失≠取消传输，无任何生命周期动作）
+        if (receiveCard != null)
+          ConversationReceiveCard(
+            key: ValueKey(receiveCard!.sessionId),
+            vm: receiveCard!,
+            onAccept: (fileNameMap) => onReceiveAccept?.call(fileNameMap),
+            onDecline: () => onReceiveDecline?.call(),
+            onCancel: () => onReceiveCancel?.call(),
+            onClose: () => onReceiveClose?.call(),
           ),
         Expanded(
           child: entries.isEmpty

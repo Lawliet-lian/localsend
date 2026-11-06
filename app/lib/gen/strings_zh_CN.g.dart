@@ -123,6 +123,8 @@ class Translations$conversation$zh_CN extends Translations$conversation$en {
   @override
   String get send => '发送';
   @override
+  late final Translations$conversation$receiveCard$zh_CN receiveCard = Translations$conversation$receiveCard$zh_CN.internal(_root);
+  @override
   late final Translations$conversation$outcome$zh_CN outcome = Translations$conversation$outcome$zh_CN.internal(_root);
 }
 
@@ -867,6 +869,23 @@ class Translations$assetPicker$zh_CN extends Translations$assetPicker$en {
   String get sNameDurationLabel => '时长';
   @override
   String get sUnitAssetCountLabel => '计数';
+}
+
+// Path: conversation.receiveCard
+class Translations$conversation$receiveCard$zh_CN extends Translations$conversation$receiveCard$en {
+  Translations$conversation$receiveCard$zh_CN.internal(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String title({required Object name}) => '来自 ${name} 的文件';
+  @override
+  String filesCount({required Object n}) => '${n} 个文件';
+  @override
+  String moreFiles({required Object n}) => '+${n} 个更多';
+  @override
+  String get canceled => '发送方已取消请求。';
 }
 
 // Path: conversation.outcome

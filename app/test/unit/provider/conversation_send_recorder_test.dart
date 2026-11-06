@@ -10,13 +10,17 @@ import 'package:localsend_app/model/state/send/sending_file.dart';
 import 'package:localsend_app/provider/conversation_provider.dart';
 import 'package:localsend_app/provider/file_transfer_provider.dart';
 import 'package:localsend_app/provider/network/conversation_send_recorder.dart';
+import 'package:localsend_app/provider/persistence_provider.dart';
 import 'package:localsend_app/provider/transfer_presentation_provider.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/model/dto/file_dto.dart';
 import 'package:localsend_isolates/model/file_status.dart';
 import 'package:localsend_isolates/model/file_type.dart';
 import 'package:localsend_isolates/model/session_status.dart';
+import 'package:mockito/mockito.dart';
 import 'package:refena_flutter/refena_flutter.dart';
+
+import '../../mocks.mocks.dart';
 
 /// P6b：发送会话记录器的单元测试。
 /// 记录器是 send_provider 全部接入点的实际执行者；startSession 整体流程依赖
@@ -118,7 +122,11 @@ void main() {
   }
 
   setUp(() {
-    container = RefenaContainer();
+    // P8：真实 conversationProvider 依赖 persistenceProvider；注入回空历史的 mock，
+    // 使记录器测试保持"纯内存投影"语义（init 走空起点，落盘为 mock no-op）。
+    final persistence = MockPersistenceService();
+    when(persistence.getConversationHistory()).thenReturn(ConversationHistoryDto.empty());
+    container = RefenaContainer(overrides: [persistenceProvider.overrideWithValue(persistence)]);
     recorder = ConversationSendRecorder(container);
   });
 

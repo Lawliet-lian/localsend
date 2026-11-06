@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/model/file_type.dart';
@@ -6,6 +8,11 @@ import 'package:uuid/uuid.dart';
 part 'conversation_models.mapper.dart';
 
 const _uuid = Uuid();
+
+/// 会话历史持久化的 schema 版本（P8）。
+/// 读写两侧共用：写入时写入该值，读取时不符则按空处理（不猜测旧格式、不删除其它设置）。
+/// 字段语义发生破坏性变更时递增。
+const conversationHistoryVersion = 1;
 
 /// 会话记录层的纯数据合同（方案 D 第 5.2 节）。
 ///
@@ -219,4 +226,98 @@ class ConversationFileSummary with ConversationFileSummaryMappable {
   });
 
   static const fromJson = ConversationFileSummaryMapper.fromJson;
+}
+
+/// 会话历史的持久化信封（P8，方案第 7 节）。
+///
+/// 设计约束：
+/// - 独立于内存层 [ConversationState]：内存态刻意不做 dart_mappable（P2 决定），
+///   持久化用本 DTO 单独定义，避免内存结构与磁盘格式互相牵制；
+/// - [version] 是会话历史自己的 schema 版本，与全局存储迁移版本无关，读到时先校验，
+///   版本不符按空处理（保守降级，不猜测旧格式，也不删除其它设置）；
+/// - **不持久化 tombstone**（clearedEntryIds）：清除状态只在本次运行内阻止晚到事件复活，
+///   重启后应为空，否则跨重启会误杀新记录（P2 已知问题 1）；
+/// - [truncatedEntryIds] 记录哪些条目的文字/错误在落盘时被截断（方案第 7 节：
+///   超长内容仅持久化有界摘要并保存截断标志），UI 层据此提示"历史内容已截断"。
+@MappableClass()
+class ConversationHistoryDto with ConversationHistoryDtoMappable {
+  /// 会话历史 schema 版本。当前为 1；字段语义破坏性变更时递增。
+  final int version;
+
+  final List<ConversationPeer> peers;
+
+  /// 落盘时已按"最旧终态优先淘汰"裁剪到限额内；活跃（非终态）记录在重启恢复时转为 incomplete。
+  final List<ConversationEntry> entries;
+
+  /// 文字/错误信息被截断的 entryId 集合（有界摘要，方案第 7 节）。
+  final List<String> truncatedEntryIds;
+
+  const ConversationHistoryDto({
+    required this.version,
+    required this.peers,
+    required this.entries,
+    this.truncatedEntryIds = const [],
+  });
+
+  /// 空历史信封。
+  factory ConversationHistoryDto.empty() {
+    return const ConversationHistoryDto(version: conversationHistoryVersion, peers: [], entries: []);
+  }
+
+  /// 从持久化的原始 JSON 字符串**容错**解析（方案第 7 节：坏 JSON / 截断 / 版本不符不得让启动失败）。
+  ///
+  /// - raw 为 null、整体不可解析、非对象、或 version 不符 → 返回空信封；
+  /// - peers / entries 数组内的**单条**坏记录 → 跳过该条、保留其余（不抛出、不影响其它记录）。
+  ///
+  /// 不依赖 SharedPreferences，可直接用字符串单测（便于覆盖坏数据场景）。
+  factory ConversationHistoryDto.decodeFromString(String? raw) {
+    if (raw == null) {
+      return ConversationHistoryDto.empty();
+    }
+
+    Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } catch (_) {
+      // 坏 JSON / 写入被截断
+      return ConversationHistoryDto.empty();
+    }
+    if (decoded is! Map<String, dynamic>) {
+      return ConversationHistoryDto.empty();
+    }
+    if (decoded['version'] != conversationHistoryVersion) {
+      // schema 版本不符：保守降级，不猜测旧格式
+      return ConversationHistoryDto.empty();
+    }
+
+    final peers = <ConversationPeer>[];
+    final rawPeers = decoded['peers'];
+    if (rawPeers is List) {
+      for (final item in rawPeers) {
+        try {
+          peers.add(ConversationPeer.fromJson(item as Map<String, dynamic>));
+        } catch (_) {
+          // 跳过单条坏设备记录
+        }
+      }
+    }
+
+    final entries = <ConversationEntry>[];
+    final rawEntries = decoded['entries'];
+    if (rawEntries is List) {
+      for (final item in rawEntries) {
+        try {
+          entries.add(ConversationEntry.fromJson(item as Map<String, dynamic>));
+        } catch (_) {
+          // 跳过单条坏会话记录
+        }
+      }
+    }
+
+    final truncated = (decoded['truncatedEntryIds'] as List?)?.cast<String>().toList() ?? const <String>[];
+
+    return ConversationHistoryDto(version: conversationHistoryVersion, peers: peers, entries: entries, truncatedEntryIds: truncated);
+  }
+
+  static const fromJson = ConversationHistoryDtoMapper.fromJson;
 }
