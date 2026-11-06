@@ -32,3 +32,19 @@ TransferPresentation decideReceivePresentation({
 }) {
   return enabled && !viaWebUpload ? TransferPresentation.conversation : TransferPresentation.legacy;
 }
+
+/// 会话模式下「收藏设备自动接收」判定（双方互收藏才互相免确认）。
+///
+/// 单向判定：每个接收端只查**自己的收藏列表**是否命中发送方指纹，
+/// 协议无需携带「对方是否收藏我」。由此天然得到：
+/// - A 收藏 B、B 未收藏 A：B→A 自动接收；A→B 仍需 B 手动同意；
+/// - 双方互相收藏：两个方向都自动接收（无障碍）。
+///
+/// 仅在 [TransferPresentation.conversation] 展示模式生效；legacy、链接接收、
+/// WebRTC 走各自路径，不受本判定影响。纯函数，便于单测（与 [decideReceivePresentation] 同原则）。
+bool shouldAutoAcceptFavoriteInConversation({
+  required TransferPresentation presentation,
+  required bool isFavorite,
+}) {
+  return presentation == TransferPresentation.conversation && isFavorite;
+}

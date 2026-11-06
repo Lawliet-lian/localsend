@@ -161,6 +161,7 @@
       "saveToHistory": "Save 去歷史紀錄",
       "verifyChecksums": "接收檔案嗰陣驗證 checksum",
       "conversationReceive": "喺聊天介面顯示收到嘅訊息同檔案",
+      "conversationReceiveHint": "已收藏嘅裝置會自動接收檔案同訊息；雙方互相收藏先可以互相免確認傳送。",
       "clearConversationHistory": "清空全部對話記錄"
     },
     "send": {

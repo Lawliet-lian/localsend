@@ -1277,6 +1277,10 @@ class Translations$settingsTab$receive$en {
   /// en: 'Show incoming messages and files in the chat view'
   String get conversationReceive => 'Show incoming messages and files in the chat view';
 
+  /// en: 'Favorited devices are accepted automatically (files and messages). Both sides must favorite each other for barrier-free sending.'
+  String get conversationReceiveHint =>
+      'Favorited devices are accepted automatically (files and messages). Both sides must favorite each other for barrier-free sending.';
+
   /// en: 'Clear all conversation history'
   String get clearConversationHistory => 'Clear all conversation history';
 }

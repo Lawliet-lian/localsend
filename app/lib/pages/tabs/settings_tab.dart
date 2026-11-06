@@ -275,6 +275,7 @@ class SettingsTab extends StatelessWidget {
                 // 切换只影响后续请求——进行中的 session 展示模式在创建时已固定（P7a），不会被静默迁移。
                 _BooleanEntry(
                   label: t.settingsTab.receive.conversationReceive,
+                  description: t.settingsTab.receive.conversationReceiveHint,
                   value: vm.settings.conversationReceiveEnabled,
                   onChanged: (b) async {
                     await ref.notifier(settingsProvider).setConversationReceiveEnabled(b);

@@ -1014,6 +1014,8 @@ class Translations$settingsTab$receive$zh_TW extends Translations$settingsTab$re
   @override
   String get conversationReceive => '在聊天介面顯示收到的訊息和檔案';
   @override
+  String get conversationReceiveHint => '已收藏的裝置將自動接收檔案和訊息；雙方互相收藏後才能互相免確認傳送。';
+  @override
   String get clearConversationHistory => '清空全部會話記錄';
 }
 

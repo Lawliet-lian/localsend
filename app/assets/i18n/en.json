@@ -163,6 +163,7 @@
       "saveToHistory": "Save to history",
       "verifyChecksums": "Verify checksums when receiving files",
       "conversationReceive": "Show incoming messages and files in the chat view",
+      "conversationReceiveHint": "Favorited devices are accepted automatically (files and messages). Both sides must favorite each other for barrier-free sending.",
       "clearConversationHistory": "Clear all conversation history"
     },
     "send": {

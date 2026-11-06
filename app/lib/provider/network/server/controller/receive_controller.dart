@@ -148,20 +148,22 @@ class ReceiveController {
     // P7b：请求到达即登记会话条目（waiting；消息则 kind=text）。legacy 为空操作。
     _conversationRecorder.onSessionCreated(session: receiveSessionState);
 
+    // 发送方是否在本端收藏列表中（指纹来自 mTLS 证书，不可伪造）。
+    // 会话模式的「收藏自动接收」与 legacy 的 quickSaveFromFavorites 共用这一判定。
+    final bool isFavorite = server.ref.read(favoritesProvider).any((e) => e.fingerprint == senderFingerprint);
     bool quickSave = settings.quickSave && server.getState().session?.message == null;
     final quickSaveFromFavorites = settings.quickSaveFromFavorites && server.getState().session?.message == null;
-    if (quickSaveFromFavorites) {
-      final bool isFavorite = server.ref.read(favoritesProvider).any((e) => e.fingerprint == senderFingerprint);
-      if (isFavorite) {
-        quickSave = true;
-      }
+    if (quickSaveFromFavorites && isFavorite) {
+      quickSave = true;
     }
     if (server.getState().webUpload && settings.receiveViaLinkAutoAccept && server.getState().session?.message == null) {
       // The upload page (receive via link) is being served and requests should be accepted automatically.
       quickSave = true;
     }
 
-    if (quickSave) {
+    // legacy 快速保存：push ProgressPage 后自动接受。会话模式不走此分支——
+    // 统一在下方会话分支内自动接受，进度由会话接收卡片展示，避免跳出会话 UI（P7c 不变量）。
+    if (quickSave && presentation != TransferPresentation.conversation) {
       // Push before accepting: the permission request in [acceptFileRequest] may block for a while.
       // ignore: use_build_context_synchronously, unawaited_futures
       Routerino.context.pushImmediately(
@@ -256,6 +258,17 @@ class ReceiveController {
     // 接受/拒绝/进度/取消（按钮仍回调本控制器的同名动作）；presentation 映射在
     // closeSession 才移除，此刻仍处于 waiting/sending，读取有效。legacy 路径零变化。
     if (presentation == TransferPresentation.conversation) {
+      // 收藏设备自动接收（文件 + 文字）：双方互收藏时两个方向都免确认。
+      // 同时兼容已开启的 quickSave/quickSaveFromFavorites——会话模式下统一在此自动接受，
+      // 不跳 legacy ProgressPage。自动接受与手动点「接受」走完全相同的 acceptFileRequest，
+      // 故前面的消息历史登记、卡片状态演进保持一致；非收藏且未开快速保存时仍由卡片手动接受。
+      final autoAccept = quickSave || shouldAutoAcceptFavoriteInConversation(presentation: presentation, isFavorite: isFavorite);
+      if (autoAccept) {
+        final message = server.getState().session?.message;
+        await acceptFileRequest(
+          message != null ? {} : {for (final f in files.values) f.id: f.fileName},
+        );
+      }
       return;
     }
 
@@ -455,7 +468,10 @@ class ReceiveController {
           quickSave = true;
         }
       }
-      if (quickSave) {
+      // 会话模式不跳首页/不弹打开文件框：完成后保留会话记录（与手动接受一致），
+      // 终态快照已由上面的 _conversationRecorder.onTerminalSnapshot 写入。
+      final presentation = server.ref.read(transferPresentationProvider)[session.sessionId] ?? TransferPresentation.legacy;
+      if (quickSave && presentation != TransferPresentation.conversation) {
         // close the session **after** the response has been sent
         Future.delayed(Duration.zero, () {
           closeSession();
