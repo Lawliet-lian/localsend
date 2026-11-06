@@ -28,6 +28,13 @@ class ConversationReceiveCardVm {
 
   bool get isSending => session.status == SessionStatus.sending;
 
+  /// 文字消息请求（P9a-1）：`session.message` 非空即命中"单 text 文件 + preview"协议判定。
+  /// 卡片据此切换为文字确认视图（正文 + 接受/拒绝），而非文件勾选列表。
+  bool get isMessage => session.message != null;
+
+  /// 文字消息正文（非消息请求为 null）。
+  String? get message => session.message;
+
   /// 发送端在决策/传输期间取消：卡片给出提示与关闭按钮（对应旧 ReceivePage 的同款状态）。
   bool get isCanceledBySender => session.status == SessionStatus.canceledBySender;
 
@@ -59,9 +66,11 @@ class ConversationReceiveCardVm {
 ///
 /// 条件全部来自现有事实，不猜全局 UI（与 P7a 判定同原则）：
 /// - session 非空且仍活跃（waiting/sending/canceledBySender；终态后 session 很快被清理，不展示残留卡片）；
-/// - presentation == conversation（P7a 在 onPrepareUpload 创建时固定；legacy 永远走旧 ReceivePage，会话内无双按钮）；
-/// - 非消息请求：消息在 onPrepareUpload 已被自动确认并写入历史/气泡（既有逻辑），
-///   停留 waiting 只是旧页面等用户点关闭——会话模式无需卡片。
+/// - presentation == conversation（P7a 在 onPrepareUpload 创建时固定；legacy 永远走旧 ReceivePage，会话内无双按钮）。
+///
+/// 消息请求（`session.message` 非空）同样建卡片（P9a-1 修正）：conversation 模式在 onPrepareUpload
+/// 已跳过旧 ReceivePage，若卡片再排除消息，文字确认的接受/拒绝入口就彻底缺失，消息会永远停在
+/// waiting、发送端一直等待。故这里不再以 message 作为排除条件。
 bool conversationReceiveCardEligible({
   required ReceiveSessionState? session,
   required TransferPresentation presentation,
@@ -70,10 +79,7 @@ bool conversationReceiveCardEligible({
     return false;
   }
   const visibleStatuses = {SessionStatus.waiting, SessionStatus.sending, SessionStatus.canceledBySender};
-  if (!visibleStatuses.contains(session.status)) {
-    return false;
-  }
-  return session.message == null;
+  return visibleStatuses.contains(session.status);
 }
 
 /// 卡片是否应出现在选中设备的详情页：session 对端与当前选中 peer 匹配才展示。

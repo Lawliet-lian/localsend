@@ -51,6 +51,12 @@ class _ConversationReceiveCardState extends State<ConversationReceiveCard> {
     final vm = widget.vm;
     final theme = Theme.of(context);
 
+    // 文字消息（P9a-1）：conversation 模式跳过旧 ReceivePage，此处提供接受/拒绝入口；
+    // 文件请求维持下方勾选卡片逻辑不变。
+    if (vm.isMessage) {
+      return _messageCard(theme, vm.message!);
+    }
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       elevation: 2,
@@ -90,6 +96,69 @@ class _ConversationReceiveCardState extends State<ConversationReceiveCard> {
               ),
             const SizedBox(height: 4),
             _actions(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 文字消息确认视图（P9a-1）：正文可选中，超长时内部滚动（不固定高度截断内容，方案 6.2）。
+  /// 接受 = 空选择确认（acceptFileRequest({}) → 服务器回 204，不下载那个承载文字的 text 文件），
+  /// 拒绝沿用 declineFileRequest；复制交给接受后的气泡（ConversationEntryTile 的 SelectableText）。
+  Widget _messageCard(ThemeData theme, String message) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.message_outlined, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    t.conversation.receiveCard.titleMessage(name: widget.vm.senderAlias),
+                    style: theme.textTheme.titleSmall,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 160),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: SelectableText(message, style: theme.textTheme.bodyMedium),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: widget.onDecline,
+                  style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
+                  child: Text(t.general.decline),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  // 消息接受固定传空 map：走 acceptFileRequest 的 204 确认分支，不触发文件下载
+                  onPressed: () => widget.onAccept(const {}),
+                  icon: const Icon(Icons.check_circle, size: 18),
+                  label: Text(t.general.accept),
+                ),
+              ],
+            ),
           ],
         ),
       ),

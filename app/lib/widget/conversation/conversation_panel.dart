@@ -56,6 +56,10 @@ class ConversationPanel extends StatelessWidget {
   final VoidCallback? onReceiveCancel;
   final VoidCallback? onReceiveClose;
 
+  /// 清空当前会话（P9a-3）：仅回调携带 peerKey；确认弹窗与 dispatch 由接线层（conversation_tab）负责，
+  /// 保持本组件 dumb（不弹对话框、不订阅 provider）。为 null 时顶栏不渲染菜单。
+  final void Function(String peerKey)? onClearPeer;
+
   const ConversationPanel({
     super.key,
     required this.views,
@@ -70,6 +74,7 @@ class ConversationPanel extends StatelessWidget {
     this.onReceiveDecline,
     this.onReceiveCancel,
     this.onReceiveClose,
+    this.onClearPeer,
     this.showDetailOnNarrow = true,
   });
 
@@ -165,6 +170,7 @@ class ConversationPanel extends StatelessWidget {
       onReceiveDecline: onReceiveDecline,
       onReceiveCancel: onReceiveCancel,
       onReceiveClose: onReceiveClose,
+      onClearPeer: onClearPeer,
     );
   }
 
@@ -191,6 +197,9 @@ class _ConversationDetail extends StatelessWidget {
   final VoidCallback? onReceiveCancel;
   final VoidCallback? onReceiveClose;
 
+  /// 清空当前会话（P9a-3）：顶栏菜单项点击后回调，携带 view.peerKey。
+  final void Function(String peerKey)? onClearPeer;
+
   const _ConversationDetail({
     required this.view,
     required this.entries,
@@ -204,6 +213,7 @@ class _ConversationDetail extends StatelessWidget {
     required this.onReceiveDecline,
     required this.onReceiveCancel,
     required this.onReceiveClose,
+    required this.onClearPeer,
   });
 
   @override
@@ -234,6 +244,24 @@ class _ConversationDetail extends StatelessWidget {
                     color: view.online ? theme.colorScheme.primary : theme.colorScheme.outline,
                   ),
                 ),
+                // 顶栏右侧菜单（P9a-3）：目前仅「清空当前会话」。点击只回调 onClearPeer(peerKey)，
+                // 确认与落盘由接线层完成；只清记录、不删文件、不取消传输（方案第 7 节）。
+                if (onClearPeer != null)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    tooltip: t.conversation.clearConversation,
+                    onSelected: (value) {
+                      if (value == 'clear') {
+                        onClearPeer!(view.peerKey);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem<String>(
+                        value: 'clear',
+                        child: Text(t.conversation.clearConversation),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),

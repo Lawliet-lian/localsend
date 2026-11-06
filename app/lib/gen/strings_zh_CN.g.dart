@@ -123,6 +123,10 @@ class Translations$conversation$zh_CN extends Translations$conversation$en {
   @override
   String get send => '发送';
   @override
+  String get clearConversation => '清空当前会话';
+  @override
+  late final Translations$conversation$clearPeerDialog$zh_CN clearPeerDialog = Translations$conversation$clearPeerDialog$zh_CN.internal(_root);
+  @override
   late final Translations$conversation$receiveCard$zh_CN receiveCard = Translations$conversation$receiveCard$zh_CN.internal(_root);
   @override
   late final Translations$conversation$outcome$zh_CN outcome = Translations$conversation$outcome$zh_CN.internal(_root);
@@ -724,6 +728,10 @@ class Translations$dialogs$zh_CN extends Translations$dialogs$en {
   @override
   late final Translations$dialogs$historyClearDialog$zh_CN historyClearDialog = Translations$dialogs$historyClearDialog$zh_CN.internal(_root);
   @override
+  late final Translations$dialogs$conversationClearDialog$zh_CN conversationClearDialog = Translations$dialogs$conversationClearDialog$zh_CN.internal(
+    _root,
+  );
+  @override
   late final Translations$dialogs$localNetworkUnauthorized$zh_CN localNetworkUnauthorized =
       Translations$dialogs$localNetworkUnauthorized$zh_CN.internal(_root);
   @override
@@ -871,6 +879,19 @@ class Translations$assetPicker$zh_CN extends Translations$assetPicker$en {
   String get sUnitAssetCountLabel => '计数';
 }
 
+// Path: conversation.clearPeerDialog
+class Translations$conversation$clearPeerDialog$zh_CN extends Translations$conversation$clearPeerDialog$en {
+  Translations$conversation$clearPeerDialog$zh_CN.internal(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '清空会话';
+  @override
+  String content({required Object name}) => '确定要清空与 ${name} 的全部会话记录吗？不会删除文件，也不会取消正在进行的传输。';
+}
+
 // Path: conversation.receiveCard
 class Translations$conversation$receiveCard$zh_CN extends Translations$conversation$receiveCard$en {
   Translations$conversation$receiveCard$zh_CN.internal(TranslationsZhCn root) : this._root = root, super.internal(root);
@@ -880,6 +901,8 @@ class Translations$conversation$receiveCard$zh_CN extends Translations$conversat
   // Translations
   @override
   String title({required Object name}) => '来自 ${name} 的文件';
+  @override
+  String titleMessage({required Object name}) => '来自 ${name} 的消息';
   @override
   String filesCount({required Object n}) => '${n} 个文件';
   @override
@@ -1069,6 +1092,10 @@ class Translations$settingsTab$receive$zh_CN extends Translations$settingsTab$re
   String get saveToHistory => '保存到历史记录';
   @override
   String get verifyChecksums => '接收文件时验证校验和';
+  @override
+  String get conversationReceive => '在聊天界面显示收到的消息和文件';
+  @override
+  String get clearConversationHistory => '清空全部会话记录';
 }
 
 // Path: settingsTab.send
@@ -1479,6 +1506,19 @@ class Translations$dialogs$historyClearDialog$zh_CN extends Translations$dialogs
   String get title => '清空历史记录';
   @override
   String get content => '确定要清空全部历史记录吗？';
+}
+
+// Path: dialogs.conversationClearDialog
+class Translations$dialogs$conversationClearDialog$zh_CN extends Translations$dialogs$conversationClearDialog$en {
+  Translations$dialogs$conversationClearDialog$zh_CN.internal(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '清空会话记录';
+  @override
+  String get content => '确定要清空全部会话记录吗？不会删除文件，也不会取消正在进行的传输。';
 }
 
 // Path: dialogs.localNetworkUnauthorized

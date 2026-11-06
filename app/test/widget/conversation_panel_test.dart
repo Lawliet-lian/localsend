@@ -79,6 +79,7 @@ void main() {
     ValueChanged<String?>? onSelect,
     String draftText = '',
     ValueChanged<String>? onSendText,
+    void Function(String peerKey)? onClearPeer,
   }) async {
     setWindow(tester, windowWidth);
     String? selected = initialSelection;
@@ -100,6 +101,8 @@ void main() {
             draftText: draftText,
             onDraftChanged: (_) {},
             onSendText: onSendText ?? (_) {},
+            // P9a-3：清空菜单回调（验证 dumb 合同：传与不传决定菜单是否渲染）
+            onClearPeer: onClearPeer,
           ),
         ),
       ),
@@ -263,6 +266,44 @@ void main() {
 
       expect(find.text('sent text'), findsOneWidget);
       expect(find.text('received text'), findsOneWidget);
+    });
+  });
+
+  group('P9a-3 顶栏清空菜单', () {
+    testWidgets('传入 onClearPeer：菜单项点击只回调 peerKey，组件自身不做任何决策', (tester) async {
+      final cleared = <String>[];
+      await pumpPanel(
+        tester,
+        windowWidth: 1000,
+        views: [view('fp:aaa', alias: 'Device A')],
+        entries: [textEntry('fp:aaa', 's1', 'hello')],
+        initialSelection: 'fp:aaa',
+        onClearPeer: cleared.add,
+      );
+
+      // 顶栏菜单图标 → 菜单项 → 回调携带选中设备的 peerKey
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t.conversation.clearConversation));
+      await tester.pumpAndSettle();
+
+      expect(cleared, ['fp:aaa']);
+      // dumb 合同：面板不弹确认对话框（只有列表项/顶栏/输入栏，无 AlertDialog）
+      expect(find.byType(AlertDialog), findsNothing);
+      // 记录展示不受影响（清除动作在接线层 dispatch 后才会反映到入参）
+      expect(find.text('hello'), findsOneWidget);
+    });
+
+    testWidgets('未传 onClearPeer：顶栏不渲染菜单（保护既有不传该参数的测试与旧行为）', (tester) async {
+      await pumpPanel(
+        tester,
+        windowWidth: 1000,
+        views: [view('fp:aaa', alias: 'Device A')],
+        entries: [textEntry('fp:aaa', 's1', 'hello')],
+        initialSelection: 'fp:aaa',
+      );
+
+      expect(find.byIcon(Icons.more_vert), findsNothing);
     });
   });
 }

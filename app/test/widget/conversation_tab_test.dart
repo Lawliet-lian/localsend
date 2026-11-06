@@ -123,7 +123,8 @@ void main() {
 
   /// 向真实（未 override 的）conversationProvider 播种一条文字记录：
   /// 详情气泡区渲染的是 entries，不是 view.lastEntry。
-  void seedEntry(Ref ref, String peerKey, String text) {
+  /// localSessionId 可指定：同一 peer 播种多条时需要不同 id（entryId 去重键）。
+  void seedEntry(Ref ref, String peerKey, String text, {String localSessionId = 's-1'}) {
     ref
         .redux(conversationProvider)
         .dispatch(
@@ -135,7 +136,7 @@ void main() {
               deviceType: DeviceType.desktop,
             ),
             direction: ConversationDirection.send,
-            localSessionId: 's-1',
+            localSessionId: localSessionId,
             kind: ConversationEntryKind.text,
             files: const [],
             text: text,
@@ -377,5 +378,75 @@ void main() {
     expect(find.byType(ConversationReceiveCard), findsNothing);
     // 原有功能不受影响：输入栏仍在
     expect(find.byIcon(Icons.send), findsOneWidget);
+  });
+
+  // ---- P9a-3 清空当前会话（按设备）接线 ----
+
+  testWidgets('P9a-3 菜单确认后：只清当前 peer 记录，其他 peer 记录与设备展示保留', (tester) async {
+    late Ref ref;
+    await pumpTab(
+      tester,
+      width: 1000,
+      views: [
+        fakeView('fp:aaa', alias: 'Real Device'),
+        fakeView('fp:bbb', alias: 'Other Device'),
+      ],
+      onRef: (r) => ref = r,
+    );
+    seedEntry(ref, 'fp:aaa', 'hello one', localSessionId: 's-a1');
+    seedEntry(ref, 'fp:aaa', 'hello two', localSessionId: 's-a2');
+    seedEntry(ref, 'fp:bbb', 'other note', localSessionId: 's-b1');
+    await tester.pump();
+
+    // 选中设备 → 顶栏菜单 → 清空当前会话
+    await tester.tap(find.text('Real Device'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.conversation.clearConversation));
+    await tester.pumpAndSettle();
+
+    // 确认弹窗文案携带对端别名（clearPeerDialog.content 的 {name} 插值）
+    expect(find.text(t.conversation.clearPeerDialog.content(name: 'Real Device')), findsOneWidget);
+
+    await tester.tap(find.text(t.general.delete));
+    await tester.pumpAndSettle();
+
+    // 选中设备的记录被清空：气泡消失，tombstone 已登记（晚到事件不复活由 provider 层单测覆盖）
+    final state = ref.read(conversationProvider);
+    expect(state.entries.where((e) => e.peerKey == 'fp:aaa'), isEmpty);
+    expect(find.text('hello one'), findsNothing);
+    // 门槛：只清该 peer——其他设备的记录不受影响
+    expect(state.entries.where((e) => e.peerKey == 'fp:bbb').length, 1);
+    // 门槛：保留 peer 展示信息——设备仍在列表（列表项 + 详情顶栏共 2 处）
+    expect(find.text('Real Device'), findsNWidgets(2));
+    expect(state.peers.any((p) => p.peerKey == 'fp:aaa'), isTrue);
+  });
+
+  testWidgets('P9a-3 弹窗取消：不清除任何记录，对话框关闭', (tester) async {
+    late Ref ref;
+    await pumpTab(
+      tester,
+      width: 1000,
+      views: [fakeView('fp:aaa', alias: 'Real Device')],
+      onRef: (r) => ref = r,
+    );
+    seedEntry(ref, 'fp:aaa', 'keep me', localSessionId: 's-a1');
+    await tester.pump();
+
+    await tester.tap(find.text('Real Device'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.conversation.clearConversation));
+    await tester.pumpAndSettle();
+
+    // 取消：不 dispatch，弹窗关闭，记录原样保留
+    await tester.tap(find.text(t.general.cancel));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(ref.read(conversationProvider).entries.length, 1);
+    expect(find.text('keep me'), findsOneWidget);
   });
 }

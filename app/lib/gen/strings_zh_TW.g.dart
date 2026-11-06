@@ -121,6 +121,10 @@ class Translations$conversation$zh_TW extends Translations$conversation$en {
   @override
   String get send => '傳送';
   @override
+  String get clearConversation => '清空目前會話';
+  @override
+  late final Translations$conversation$clearPeerDialog$zh_TW clearPeerDialog = Translations$conversation$clearPeerDialog$zh_TW.internal(_root);
+  @override
   late final Translations$conversation$receiveCard$zh_TW receiveCard = Translations$conversation$receiveCard$zh_TW.internal(_root);
   @override
   late final Translations$conversation$outcome$zh_TW outcome = Translations$conversation$outcome$zh_TW.internal(_root);
@@ -641,6 +645,10 @@ class Translations$dialogs$zh_TW extends Translations$dialogs$en {
   @override
   late final Translations$dialogs$historyClearDialog$zh_TW historyClearDialog = Translations$dialogs$historyClearDialog$zh_TW.internal(_root);
   @override
+  late final Translations$dialogs$conversationClearDialog$zh_TW conversationClearDialog = Translations$dialogs$conversationClearDialog$zh_TW.internal(
+    _root,
+  );
+  @override
   late final Translations$dialogs$localNetworkUnauthorized$zh_TW localNetworkUnauthorized =
       Translations$dialogs$localNetworkUnauthorized$zh_TW.internal(_root);
   @override
@@ -788,6 +796,19 @@ class Translations$assetPicker$zh_TW extends Translations$assetPicker$en {
   String get sUnitAssetCountLabel => '計數';
 }
 
+// Path: conversation.clearPeerDialog
+class Translations$conversation$clearPeerDialog$zh_TW extends Translations$conversation$clearPeerDialog$en {
+  Translations$conversation$clearPeerDialog$zh_TW.internal(TranslationsZhTw root) : this._root = root, super.internal(root);
+
+  final TranslationsZhTw _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '清空會話';
+  @override
+  String content({required Object name}) => '確定要清空與 ${name} 的全部會話記錄嗎？不會刪除檔案，也不會取消正在進行的傳輸。';
+}
+
 // Path: conversation.receiveCard
 class Translations$conversation$receiveCard$zh_TW extends Translations$conversation$receiveCard$en {
   Translations$conversation$receiveCard$zh_TW.internal(TranslationsZhTw root) : this._root = root, super.internal(root);
@@ -797,6 +818,8 @@ class Translations$conversation$receiveCard$zh_TW extends Translations$conversat
   // Translations
   @override
   String title({required Object name}) => '來自 ${name} 的檔案';
+  @override
+  String titleMessage({required Object name}) => '來自 ${name} 的訊息';
   @override
   String filesCount({required Object n}) => '${n} 個檔案';
   @override
@@ -986,6 +1009,10 @@ class Translations$settingsTab$receive$zh_TW extends Translations$settingsTab$re
   String get saveToHistory => '儲存至歷史記錄';
   @override
   String get verifyChecksums => '接收檔案時驗證校驗碼';
+  @override
+  String get conversationReceive => '在聊天介面顯示收到的訊息和檔案';
+  @override
+  String get clearConversationHistory => '清空全部會話記錄';
 }
 
 // Path: settingsTab.send
@@ -1396,6 +1423,19 @@ class Translations$dialogs$historyClearDialog$zh_TW extends Translations$dialogs
   String get title => '清除歷史記錄';
   @override
   String get content => '您真的要刪除整個歷史記錄嗎?';
+}
+
+// Path: dialogs.conversationClearDialog
+class Translations$dialogs$conversationClearDialog$zh_TW extends Translations$dialogs$conversationClearDialog$en {
+  Translations$dialogs$conversationClearDialog$zh_TW.internal(TranslationsZhTw root) : this._root = root, super.internal(root);
+
+  final TranslationsZhTw _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '清空會話記錄';
+  @override
+  String get content => '確定要清空全部會話記錄嗎？不會刪除檔案，也不會取消正在進行的傳輸。';
 }
 
 // Path: dialogs.localNetworkUnauthorized

@@ -9,8 +9,14 @@
     "collapse": "Collapse",
     "composeHint": "Type a message…",
     "send": "Send",
+    "clearConversation": "Clear this conversation",
+    "clearPeerDialog": {
+      "title": "Clear conversation",
+      "content": "Do you really want to delete all records with {name}? Files are not deleted and ongoing transfers are not canceled."
+    },
     "receiveCard": {
       "title": "Files from {name}",
+      "titleMessage": "Message from {name}",
       "filesCount": "{n} files",
       "moreFiles": "+{n} more",
       "canceled": "The sender has canceled the request."
@@ -154,7 +160,9 @@
       "downloads": "(Downloads)",
       "saveToGallery": "Save media to gallery",
       "saveToHistory": "Save to history",
-      "verifyChecksums": "Verify checksums when receiving files"
+      "verifyChecksums": "Verify checksums when receiving files",
+      "conversationReceive": "Show incoming messages and files in the chat view",
+      "clearConversationHistory": "Clear all conversation history"
     },
     "send": {
       "title": "Send",
@@ -500,6 +508,10 @@
     "historyClearDialog": {
       "title": "Clear history",
       "content": "Do you really want to delete the entire history?"
+    },
+    "conversationClearDialog": {
+      "title": "Clear conversations",
+      "content": "Do you really want to delete all conversation records? Files are not deleted and ongoing transfers are not canceled."
     },
     "localNetworkUnauthorized": {
       "title": "@:dialogs.noPermission.title",

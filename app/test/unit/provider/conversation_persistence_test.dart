@@ -16,6 +16,9 @@ void main() {
     persistence = MockPersistenceService();
     // 默认无历史：init() 走空信封（纯内存起点），落盘默认 no-op（nice mock 返回 Future.value）
     when(persistence.getConversationHistory()).thenReturn(ConversationHistoryDto.empty());
+    // P9a-2：复现生产默认的"保存历史"开启，使既有落盘用例行为与真实环境一致
+    // （隐私门控采用黑名单，默认不拉黑；关闭保存的场景在下方专项 group 内单独 stub）。
+    when(persistence.isSaveToHistory()).thenReturn(true);
   });
 
   ConversationPeer peer(String fp) {
@@ -174,6 +177,61 @@ void main() {
       expect(dto.entries.length, 500);
       expect(dto.entries.any((e) => e.localSessionId == 'new'), isTrue); // 活跃不淘汰
       expect(dto.entries.any((e) => e.localSessionId == 't-0'), isFalse); // 最旧终态被淘汰
+    });
+  });
+
+  group('隐私门控（P9a-2：复用 saveToHistory 开关）', () {
+    test('语义①：关闭保存后新内容不落盘，但当前运行内存仍可显示', () async {
+      when(persistence.isSaveToHistory()).thenReturn(false);
+      final service = ReduxNotifier.test(redux: ConversationService(persistence));
+      ensureSend(service, 's-1');
+      await flush(service);
+
+      expect(service.state.entries.length, 1); // 内存仍显示（当前运行可见）
+      expect(lastWritten().entries, isEmpty); // 关闭期间新建被拉黑 → 落盘快照为空
+    });
+
+    test('语义③：重新开启后不把关闭期间的临时内容补存进去', () async {
+      final service = ReduxNotifier.test(redux: ConversationService(persistence));
+      when(persistence.isSaveToHistory()).thenReturn(false);
+      ensureSend(service, 's-off'); // 关闭期间新建 → 拉黑
+      when(persistence.isSaveToHistory()).thenReturn(true);
+      ensureSend(service, 's-on'); // 开启后新建 → 可存
+      await flush(service);
+
+      final dto = lastWritten();
+      expect(dto.entries.map((e) => e.entryId), ['send:s-on']); // 只含重开后的记录
+    });
+
+    test('语义②：关闭保存不会删除已有历史（重启恢复的记录仍照常落盘）', () async {
+      when(persistence.getConversationHistory()).thenReturn(
+        ConversationHistoryDto(
+          version: conversationHistoryVersion,
+          peers: [peer('AAA')],
+          entries: [snapshot('old')],
+        ),
+      );
+      when(persistence.isSaveToHistory()).thenReturn(false);
+      final service = ReduxNotifier.test(redux: ConversationService(persistence));
+      ensureSend(service, 'new'); // 关闭期间新建 → 拉黑
+      await flush(service);
+
+      final dto = lastWritten();
+      expect(dto.entries.map((e) => e.entryId), contains('send:old')); // 已有历史保留
+      expect(dto.entries.any((e) => e.localSessionId == 'new'), isFalse); // 新内容不落盘
+    });
+
+    test('语义④：即便关闭保存，主动清除仍落盘删除对应磁盘记录', () async {
+      final service = ReduxNotifier.test(redux: ConversationService(persistence));
+      ensureSend(service, 's-1'); // 开启期间新建 → 落盘含 s-1
+      await flush(service);
+      expect(lastWritten().entries.map((e) => e.entryId), ['send:s-1']);
+
+      when(persistence.isSaveToHistory()).thenReturn(false); // 关闭保存
+      service.dispatch(RemoveConversationEntryAction('send:s-1'));
+      await flush(service);
+
+      expect(lastWritten().entries, isEmpty); // 清除操作照常写盘（删除生效）
     });
   });
 }

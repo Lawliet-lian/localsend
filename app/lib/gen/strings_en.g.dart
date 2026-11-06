@@ -108,6 +108,10 @@ class Translations$conversation$en {
   /// en: 'Send'
   String get send => 'Send';
 
+  /// en: 'Clear this conversation'
+  String get clearConversation => 'Clear this conversation';
+
+  late final Translations$conversation$clearPeerDialog$en clearPeerDialog = Translations$conversation$clearPeerDialog$en.internal(_root);
   late final Translations$conversation$receiveCard$en receiveCard = Translations$conversation$receiveCard$en.internal(_root);
   late final Translations$conversation$outcome$en outcome = Translations$conversation$outcome$en.internal(_root);
 }
@@ -807,6 +811,9 @@ class Translations$dialogs$en {
   late final Translations$dialogs$fileInfo$en fileInfo = Translations$dialogs$fileInfo$en.internal(_root);
   late final Translations$dialogs$fileNameInput$en fileNameInput = Translations$dialogs$fileNameInput$en.internal(_root);
   late final Translations$dialogs$historyClearDialog$en historyClearDialog = Translations$dialogs$historyClearDialog$en.internal(_root);
+  late final Translations$dialogs$conversationClearDialog$en conversationClearDialog = Translations$dialogs$conversationClearDialog$en.internal(
+    _root,
+  );
   late final Translations$dialogs$localNetworkUnauthorized$en localNetworkUnauthorized = Translations$dialogs$localNetworkUnauthorized$en.internal(
     _root,
   );
@@ -984,6 +991,22 @@ class Translations$assetPicker$en {
   String get sUnitAssetCountLabel => 'count';
 }
 
+// Path: conversation.clearPeerDialog
+class Translations$conversation$clearPeerDialog$en {
+  Translations$conversation$clearPeerDialog$en.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// en: 'Clear conversation'
+  String get title => 'Clear conversation';
+
+  /// en: 'Do you really want to delete all records with {name}? Files are not deleted and ongoing transfers are not canceled.'
+  String content({required Object name}) =>
+      'Do you really want to delete all records with ${name}? Files are not deleted and ongoing transfers are not canceled.';
+}
+
 // Path: conversation.receiveCard
 class Translations$conversation$receiveCard$en {
   Translations$conversation$receiveCard$en.internal(this._root);
@@ -994,6 +1017,9 @@ class Translations$conversation$receiveCard$en {
 
   /// en: 'Files from {name}'
   String title({required Object name}) => 'Files from ${name}';
+
+  /// en: 'Message from {name}'
+  String titleMessage({required Object name}) => 'Message from ${name}';
 
   /// en: '{n} files'
   String filesCount({required Object n}) => '${n} files';
@@ -1244,6 +1270,12 @@ class Translations$settingsTab$receive$en {
 
   /// en: 'Verify checksums when receiving files'
   String get verifyChecksums => 'Verify checksums when receiving files';
+
+  /// en: 'Show incoming messages and files in the chat view'
+  String get conversationReceive => 'Show incoming messages and files in the chat view';
+
+  /// en: 'Clear all conversation history'
+  String get clearConversationHistory => 'Clear all conversation history';
 }
 
 // Path: settingsTab.send
@@ -1743,6 +1775,21 @@ class Translations$dialogs$historyClearDialog$en {
 
   /// en: 'Do you really want to delete the entire history?'
   String get content => 'Do you really want to delete the entire history?';
+}
+
+// Path: dialogs.conversationClearDialog
+class Translations$dialogs$conversationClearDialog$en {
+  Translations$dialogs$conversationClearDialog$en.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// en: 'Clear conversations'
+  String get title => 'Clear conversations';
+
+  /// en: 'Do you really want to delete all conversation records? Files are not deleted and ongoing transfers are not canceled.'
+  String get content => 'Do you really want to delete all conversation records? Files are not deleted and ongoing transfers are not canceled.';
 }
 
 // Path: dialogs.localNetworkUnauthorized

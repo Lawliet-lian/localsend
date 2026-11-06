@@ -365,7 +365,7 @@ fvm flutter test
 - [x] P7b 接收生命周期记录。（见下方交接记录）
 - [x] P7c 接收操作。（见下方交接记录）
 - [x] P8 有界持久化与隐私。（见下方交接记录）
-- [ ] P9a 用户开关与清除。
+- [x] P9a 用户开关与清除。（拆 3 子批：P9a-1 会话内文字接收确认缺口、P9a-2 接收展示开关 + 历史隐私控制 + 清空全部、P9a-3 按设备清除均已完成，见下方交接记录）
 - [ ] P9b 附件发送。
 - [ ] P10 文案与代码生成。
 - [ ] P11 全量回归及四端验收。
@@ -523,6 +523,40 @@ fvm flutter test
 | 命令与结果 | 本批两文件 `fvm flutter test`：15/15（DTO 8 + persistence 7）。全量 `fvm flutter test`：**220/220**（205 基线 + 15 新增）。`fvm flutter analyze`：No issues found。`fvm dart format --set-exit-if-changed`（本批 8 文件）：0 changed。`fvm dart run build_runner build`：成功（ConversationHistoryDto mapper + mocks 重生）。修复过程四处：1) mockito 跳过可空返回方法生成 → getConversationHistory 改为非空 DTO；2) `build_runner clean` 误删已提交的 .mapper.dart → `git ls-files --deleted | xargs git checkout` 全量恢复（未涉 pbxproj）；3) latest-wins 用例 `verify(...).called(1)` 与后续 `lastWritten()` 重复 verify 冲突 → 改单次 verify 取 captured 同时断言次数与内容；4) provider 新增持久化依赖使 30 个既有测试（widget + 两 recorder）报 `persistenceProvider not initialized` → 按仓库先例给测试容器 override MockPersistenceService。 |
 | 已知问题 | 1) 2 MiB 字节淘汰循环在截断(2000)+条目(500)封顶后序列化约 1 MB 极难触达，属防御性代码，未写专项测试。2) 字节数以 `jsonEncode(...).length`（UTF-16 码元）近似，非严格 UTF-8 字节；作为上限守卫偏保守可接受。3) 持久化仅在开关打开产生会话记录时才会写入（无记录→空信封→不落盘）；端到端写入验证仍需 P9a 开关 UI。4) 存储为单个 JSON blob，与旧 receiveHistoryProvider 完全独立，互不影响。 |
 | 下一批入口 | P9a 用户开关与清除。只读：`settings_tab`/`settings 相关 provider`、`persistence_provider.dart`（会话接收开关 `ls_conversation_receive_enabled` 已有；需新开关/入口）、`conversation_provider.dart`（清除入口已有 RemoveConversationEntryAction/ClearPeer/ClearAll，需接 UI）。目标：新接收展示开关（默认关闭；切换不改变活跃请求）与历史清除入口（关闭历史不落盘）。门槛：默认关闭；开关切换不迁移/不影响进行中的活跃 session；关闭历史时不落盘。注意：清除 action 的 after() 已会 schedulePersist，清除后落盘的 DTO 自然不含 tombstone（P8 已保证）。 |
+
+### P9a-1 交接记录（2026-11-06）
+
+| 字段 | 内容 |
+| --- | --- |
+| 批次/日期 | P9a-1 / 2026-11-06（P9a 三子批之一：会话内文字接收确认缺口） |
+| 背景/问题 | 核实发现 P7c 遗留缺口：conversation 模式在 onPrepareUpload 会跳过旧 ReceivePage（receive_controller L258-260 return），而接收卡片判定 `conversationReceiveCardEligible` 又对 `session.message != null` 返回 false（不建卡片）。文字消息又不是 quickSave 自动确认（quickSave 对 message 关闭），结果是文字请求进入会话后永远停在 waiting、既无旧页按钮也无卡片按钮，发送端一直等待。本批补齐会话内文字确认入口。 |
+| 实际变更文件 | 修改（手写业务，2 个）：`app/lib/model/conversation/conversation_receive_card_vm.dart`（`conversationReceiveCardEligible` 去掉 `session.message == null` 排除、改为活跃+conversation 即建卡片；Vm 新增 `isMessage`/`message` 两个 getter）、`app/lib/widget/conversation/conversation_receive_card.dart`（build 增加 `vm.isMessage` 分支 → 新增 `_messageCard` 文字确认视图：标题 `titleMessage` + 可选中正文（超高内部滚动不截断）+ 拒绝/接受；接受固定调 `onAccept(const {})`，走 acceptFileRequest 的 204 确认分支，不下载承载文字的 text 文件）。修改（i18n）：en/zh-CN/zh-TW 的 `conversation.receiveCard` 新增 `titleMessage` → slang 生成。未改接线层（conversation_tab/panel 已透传 onReceiveAccept(fileNameMap)，传空 map 即可）。未动 Rust/协议/isolate/旧历史/原生工程/依赖。 |
+| 已验证行为 | 门槛：①消息请求在 conversation 下建卡片（eligible isTrue）、legacy 仍不建（走旧页，无双按钮）；②文字卡片接受回调携带**空 fileNameMap**（widget 测断言 accepted isEmpty），确保走 204 而非文件下载；③拒绝沿用 declineFileRequest；④正文以 SelectableText 展示、不出现文件勾选 Checkbox。既有文件卡片三态（waiting 勾选/sending 进度/canceledBySender 关闭）零回归。 |
+| 命令与结果 | 本批相关三文件 `fvm flutter test`：22/22（vm 纯函数 + card widget + tab 接线）。全量 `fvm flutter test`：**222/222**（220 基线 + 2 新增）。`fvm flutter analyze`：No issues found。`fvm dart format --set-exit-if-changed`（本批 4 文件）：0 changed。`fvm dart run slang`：成功。 |
+| 已知问题 | 1) 未端到端跑真机验证“老版发文字→新版确认→发送端结束等待”，依赖 isolate/Rust；本批以纯函数 + widget 接线测试 + acceptFileRequest 既有 204 逻辑背书。2) 文字卡片第一版不含“复制”按钮（避免引入剪贴板/snackbar 依赖）；接受后正文进入气泡，ConversationEntryTile 的 SelectableText 可复制。3) 端到端可见仍需 P9a-2 接开关 UI（当前 conversationReceiveEnabled 默认关、无 UI）。 |
+| 下一批入口 | P9a-2：接收展示开关 UI（把已有 conversationReceiveEnabled 接到设置页，默认关、切换不影响活跃 session—P7a 已保证）+ 历史隐私控制（复用现有 saveToHistory 开关门控会话落盘：关时新内容不落盘、不删已有、重开不补存、主动清除仍删磁盘）+ 设置页“清空全部会话记录”入口。注意：方案 L226“与现有保存历史开关一致”——复用 saveToHistory，不新增 settings_state 字段；schedulePersist 需区分“临时显示内容”与“可保存内容”，不能简单 `if(!enabled) return`（否则关闭期间的活跃内容仍会被下次落盘写入）。 |
+
+### P9a-2 交接记录（2026-11-06）
+
+| 字段 | 内容 |
+| --- | --- |
+| 批次/日期 | P9a-2 / 2026-11-06（P9a 三子批之二：接收展示开关 + 历史隐私控制 + 清空全部入口） |
+| 实际变更文件 | 修改（手写业务，3 个）：`app/lib/provider/conversation_provider.dart`（ConversationService 新增隐私门控：黑名单 `_nonPersistableEntryIds` + getter `_saveToHistory` + `trackNewEntry`/`forgetNewEntryGuard`/`resetNewEntryGuards`；`_toPersistable` 先过滤黑名单再走 P8 四道裁剪；Ensure/Upsert 仅**新建/追加**分支调 trackNewEntry，原位替换不改归属；Remove/ClearPeer/ClearAll 同步清理拉黑标记以保持集合有界）、`app/lib/pages/tabs/settings_tab.dart`（接收区 `saveToHistory` 之后新增会话接收展示 `_BooleanEntry`（接已有 `conversationReceiveEnabled`）+ 清空全部 `_SettingsEntry`（弹 `ConversationClearDialog` 确认后 `ref.redux(conversationProvider).dispatch(ClearAllEntriesAction())`）；补两个 import）、新建 `app/lib/widget/dialogs/conversation_clear_dialog.dart`（参数化 title/content 的确认 AlertDialog，仿 HistoryClearDialog，供 P9a-3 按设备清空复用）。修改（i18n）：en/zh-CN/zh-TW 新增 `settingsTab.receive.conversationReceive`、`settingsTab.receive.clearConversationHistory`、`dialogs.conversationClearDialog.{title,content}` → slang 生成。修改（测试）：`conversation_persistence_test.dart` setUp 补 `isSaveToHistory()=true` + 新增 4 条门控用例。未动 Rust/协议/isolate/旧 receiveHistoryProvider/原生工程/依赖。 |
+| 已验证行为 | 门槛：①开关默认关闭——`getConversationReceiveEnabled() ?? false`，本批仅接 UI，未改判定；切换只写 prefs + SettingsState，活跃 session 展示模式在 onPrepareUpload 创建时已固定（P7a），不被静默迁移。②历史隐私门控复用现有 `saveToHistory`（方案 L226），四语义各有专测：关时新内容不落盘但内存 state 仍显示（①）；重开不补存关闭期间临时内容（黑名单长期有效，③）；关时不删已有历史、重启恢复的记录照常落盘（②）；关时主动清除仍落盘删除磁盘记录（④）。③清空全部：确认后 dispatch ClearAllEntriesAction，entries 清空 + tombstone 记入 + 落盘快照为空，不删文件/不取消传输/不碰旧接收历史。关键：门控采用**黑名单**且默认集合为空，故保存开启时行为与 P8 **完全一致**，15 个既有落盘用例零回归（含 initialState 直注、latest-wins、50 peer/500 条裁剪）。 |
+| 命令与结果 | 本批测试文件 `fvm flutter test conversation_persistence_test.dart`：19/19（P8 15 + 新增 4）。全量 `fvm flutter test`：**226/226**（222 基线 + 4 新增）。`fvm flutter analyze`：No issues found。`fvm dart format --set-exit-if-changed`（本批 4 个 Dart 文件）：0 changed。`fvm dart run slang`：成功。 |
+| 已知问题 | 1) 端到端"关保存→新消息仅当前会话可见、重启消失"依赖真实 isolate/Rust 收发，本批以 provider 单测（内存 vs 落盘分离断言）背书。2) `saveToHistory` 是共享开关：关闭会同时门控旧接收历史（AddHistoryEntryAction）与新会话落盘（本批），两套存储仍独立不合并。3) 设置页清空为全局一次性；按设备清空入口留 P9a-3（复用 ConversationClearDialog + ClearPeerEntriesAction）。4) 无新增设置页 widget 测试（settings_tab 无既有测试基座），UI 接线靠 analyze + 编译校验；核心隐私/清除逻辑由 provider 单测覆盖。 |
+| 下一批入口 | P9a-3：按设备清空入口。在会话详情页顶栏菜单（conversation_panel 详情区）挂"清空当前会话"项，弹 ConversationClearDialog（传按设备文案），确认后 `ref.redux(conversationProvider).dispatch(ClearPeerEntriesAction(selectedPeerKey))`；ClearPeerEntriesAction 的 after() 已 schedulePersist、且本批已接入 forgetNewEntryGuard 清理，落盘自然不含被清记录。门槛：只清该 peer 记录、保留 peer 展示信息、不删文件/不取消传输；关闭保存时清除仍落盘删除。 |
+
+### P9a-3 交接记录（2026-11-06）
+
+| 字段 | 内容 |
+| --- | --- |
+| 批次/日期 | P9a-3 / 2026-11-06（P9a 三子批之三：按设备清空会话记录 + 本批测试与文档补正） |
+| 实际变更文件 | 业务代码（早前执行轮已实现，本批核实并保留）：`app/lib/pages/tabs/conversation_tab.dart`（`_clearPeer`：弹 `ConversationClearDialog`（传 `clearPeerDialog.title` + 带对端别名插值的 `clearPeerDialog.content(name:)`），确认后 `dispatch(ClearPeerEntriesAction(peerKey))`）、`app/lib/widget/conversation/conversation_panel.dart`（详情顶栏 `PopupMenuButton`，菜单项唯一「清空当前会话」，`onClearPeer` 为 null 时不渲染）、i18n 三语 `conversation.clearConversation` + `conversation.clearPeerDialog.{title,content}`（slang 已生成）。本批新增（测试）：`conversation_panel_test.dart` 追加 group「P9a-3 顶栏清空菜单」2 用例；`conversation_tab_test.dart` 追加 P9a-3 接线 2 用例，`seedEntry` helper 增可选 `localSessionId` 参数（同 peer 播多条记录需要不同去重键）。未动 Rust/协议/isolate/旧接收历史/原生工程。 |
+| 已验证行为 | 门槛（方案第 7 节 / 不变量 2）：①确认后只清当前 peer 的 entries（气泡消失、state 断言），其他 peer 记录不受影响；②保留 peer 展示信息（设备仍在列表、`state.peers` 仍含该 peer）；③确认文案携带对端别名（`{name}` 插值断言）；④取消不 dispatch、记录原样保留；⑤dumb 合同：面板只回调 peerKey 不弹对话框，未传回调时菜单不渲染（保护既有测试）。落盘层语义（关闭保存时清除仍落盘删除、tombstone 防晚到事件复活）由 P2/P9a-2 既有 provider/persistence 单测覆盖，本批不重复。 |
+| 命令与结果 | 本批两测试文件 `fvm flutter test`：22/22（panel 14 + tab 8，新增 4 用例均首跑通过）。全量 `fvm flutter test`：**230/230**（226 基线 + 4 新增）。`fvm flutter analyze`：No issues found。`fvm dart format`（本批 2 文件）：0 changed。 |
+| 已知问题 | 1) 菜单确认后的真实落盘依赖 isolate/Rust 环境，widget 测试用 MockPersistenceService 验证到 dispatch 为止（沿用既有测试契约）。2) 顶栏菜单目前仅一个条目，后续批次（如打开文件位置）再扩展。3) 勘误：本批执行前曾存在一个文档未规划的计划外加项「会话列表搜索过滤（自标 P9b-2）」，经用户确认属于无合同功能，已于 2026-11-06 全部移除（含 `filteredConversationPeerViewsProvider`、`searchQuery`/`setSearchQuery`、面板搜索框、`searchHint` 文案及相关接线），代码库功能集回到本文档定义；若将来需要搜索，应先在第 8 节补充批次合同再实施。 |
+| 下一批入口 | P9b 附件发送（方案 6.3 全部约束）：只读 `app/lib/util/native/file_picker.dart`（PickFileAction/FilePickerOption 平台支持能力）、`app/lib/provider/selection/selected_sending_files_provider.dart`（全局 selection 与缓存清理时机，不可用 ClearSelectionAction 暂存）、`conversation_composer.dart`（附件按钮插入位置）。门槛：仅全局 selection 为空且无活跃发送时允许选择；选择器期间锁发送与切设备；发送前不可变快照；不支持的平台按钮不出现。 |
 
 ## 12. 停止与撤回策略
 

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/conversation/conversation_models.dart';
 import 'package:localsend_app/model/conversation/conversation_receive_card_vm.dart';
 import 'package:localsend_app/model/conversation/transfer_presentation.dart';
@@ -15,6 +16,7 @@ import 'package:localsend_app/provider/network/send_provider.dart';
 import 'package:localsend_app/provider/network/server/server_provider.dart';
 import 'package:localsend_app/provider/transfer_presentation_provider.dart';
 import 'package:localsend_app/widget/conversation/conversation_panel.dart';
+import 'package:localsend_app/widget/dialogs/conversation_clear_dialog.dart';
 import 'package:localsend_isolates/model/file_type.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -102,6 +104,8 @@ class ConversationTab extends StatelessWidget {
       onReceiveDecline: () => ref.notifier(serverProvider).declineFileRequest(),
       onReceiveCancel: () => ref.notifier(serverProvider).cancelSession(),
       onReceiveClose: () => ref.notifier(serverProvider).closeSession(),
+      // P9a-3：顶栏「清空当前会话」菜单只回调 peerKey，确认与落盘都在本接线层完成，面板保持 dumb
+      onClearPeer: (peerKey) => _clearPeer(context, ref, views, peerKey),
     );
   }
 
@@ -143,5 +147,25 @@ class ConversationTab extends StatelessWidget {
     );
     // 发送已提交：清本设备草稿（不影响其他设备的草稿）
     ref.notifier(conversationUiProvider).clearDraft(view.peerKey);
+  }
+
+  /// 清空当前会话（P9a-3）：复用 P9a-2 的通用确认对话框 [ConversationClearDialog]，
+  /// 仅把文案换成「按设备」版本（t.conversation.clearPeerDialog，带对端别名插值）。
+  /// 门槛（方案第 7 节 / 不变量 2）：只清除该 peer 的会话记录，保留设备展示信息，
+  /// 不删除真实文件、不取消进行中的传输；关闭保存时清除仍会落盘删除
+  /// （ClearPeerEntriesAction 的 after 已 schedulePersist，并在 reduce 里 forgetNewEntryGuard）。
+  void _clearPeer(BuildContext context, Ref ref, List<ConversationPeerView> views, String peerKey) async {
+    final alias = views.firstWhereOrNull((v) => v.peerKey == peerKey)?.alias ?? '';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => ConversationClearDialog(
+        title: t.conversation.clearPeerDialog.title,
+        // clearPeerDialog 是嵌套对象（title + 带 {name} 插值的 content），必须取 content 调用
+        content: t.conversation.clearPeerDialog.content(name: alias),
+      ),
+    );
+    if (confirmed == true) {
+      ref.redux(conversationProvider).dispatch(ClearPeerEntriesAction(peerKey));
+    }
   }
 }

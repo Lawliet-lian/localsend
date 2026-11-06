@@ -63,6 +63,29 @@ class ConversationService extends ReduxNotifier<ConversationState> {
   int _seq = 0;
   Future<void> _queue = Future.value();
 
+  // 历史隐私门控（P9a-2）：黑名单——只有"保存历史"开关关闭期间新建的记录才加入，使其永不落盘。
+  // 采用黑名单而非白名单，是为了让默认（保存开启）行为与 P8 完全一致：集合默认空 → 全部可落盘。
+  // 四条语义（方案第 7 节 / L226）：①关闭后新内容不落盘、②已有历史不删、③重开不补存关闭期间内容、
+  // ④主动清除仍落盘删除。见 trackNewEntry / _toPersistable。
+  final _nonPersistableEntryIds = <String>{};
+
+  /// 当前是否允许把新记录写入磁盘；无持久化（纯内存测试）按允许处理，保证零副作用。
+  bool get _saveToHistory => _persistence?.isSaveToHistory() ?? true;
+
+  /// 登记一条"新建"（非原位替换）的会话记录：若此刻保存历史被关闭，则拉黑使其永不落盘。
+  /// 重新开启也不会补存——黑名单标记一经加入即长期有效，直到该记录被主动清除。
+  void trackNewEntry(String entryId) {
+    if (!_saveToHistory) {
+      _nonPersistableEntryIds.add(entryId);
+    }
+  }
+
+  /// 记录被清除后其拉黑标记已无意义（内存已无该记录），一并移除以保持集合有界（语义 ④）。
+  void forgetNewEntryGuard(String entryId) => _nonPersistableEntryIds.remove(entryId);
+
+  /// 清空全部时重置拉黑集合。
+  void resetNewEntryGuards() => _nonPersistableEntryIds.clear();
+
   /// 测试可见：等待所有已排队的落盘任务完成（after() 是 fire-and-forget，测试需 drain 事件循环）。
   Future<void> get persistQueue => _queue;
 
@@ -116,10 +139,14 @@ class ConversationService extends ReduxNotifier<ConversationState> {
   /// ③ 设备数裁剪到 _maxPersistedPeers；
   /// ④ 序列化仍超 _maxPersistedBytes 时，继续从最旧终态记录淘汰直至达标。
   ConversationHistoryDto _toPersistable(ConversationState s) {
+    // P9a-2 隐私门控：先剔除"保存关闭期间新建"的记录；已有（非拉黑）记录照常进入磁盘快照，
+    // 因此关闭开关不会删除既有历史（语义 ②），关闭期间新内容也不落盘（语义 ①、③）。
+    final persistableEntries = s.entries.where((e) => !_nonPersistableEntryIds.contains(e.entryId)).toList();
+
     // ① 截断过长文字/错误
     final truncatedIds = <String>[];
     var entries = <ConversationEntry>[];
-    for (final e in s.entries) {
+    for (final e in persistableEntries) {
       final textTooLong = e.text != null && e.text!.length > _maxPersistedTextLen;
       final errorTooLong = e.error != null && e.error!.length > _maxPersistedTextLen;
       if (textTooLong || errorTooLong) {
@@ -247,6 +274,8 @@ class EnsureTransferEntryAction extends ReduxAction<ConversationService, Convers
           error: null,
         ),
       );
+      // 新建记录登记持久化归属（保存关闭期间创建的将拉黑，P9a-2）。
+      notifier.trackNewEntry(entryId);
     }
 
     return ConversationState(peers: peers, entries: entries, clearedEntryIds: state.clearedEntryIds);
@@ -278,6 +307,8 @@ class UpsertTransferSnapshotAction extends ReduxAction<ConversationService, Conv
     final index = entries.indexWhere((e) => e.entryId == entry.entryId);
     if (index == -1) {
       entries.add(entry);
+      // 快照先到、补登记的新记录同样纳入隐私门控（P9a-2）。
+      notifier.trackNewEntry(entry.entryId);
       // 从最旧开始删除第一个终态记录，直到不超过上限；活跃记录跳过。
       while (entries.length > _maxEntries) {
         final evictIndex = entries.indexWhere((e) => e.outcome.isTerminal);
@@ -315,6 +346,7 @@ class RemoveConversationEntryAction extends ReduxAction<ConversationService, Con
     }
     final entries = [...state.entries]..removeAt(index);
     final cleared = {...state.clearedEntryIds, entryId};
+    notifier.forgetNewEntryGuard(entryId); // 清除后拉黑标记失去意义（P9a-2 语义 ④）
     return ConversationState(peers: state.peers, entries: entries, clearedEntryIds: cleared);
   }
 }
@@ -338,6 +370,9 @@ class ClearPeerEntriesAction extends ReduxAction<ConversationService, Conversati
     }
     final entries = state.entries.where((e) => e.peerKey != peerKey).toList();
     final cleared = {...state.clearedEntryIds, ...removed};
+    for (final id in removed) { // 被清记录的拉黑标记一并移除（P9a-2 语义 ④）
+      notifier.forgetNewEntryGuard(id);
+    }
     return ConversationState(peers: state.peers, entries: entries, clearedEntryIds: cleared);
   }
 }
@@ -354,6 +389,7 @@ class ClearAllEntriesAction extends ReduxAction<ConversationService, Conversatio
       return state;
     }
     final cleared = {...state.clearedEntryIds, ...state.entries.map((e) => e.entryId)};
+    notifier.resetNewEntryGuards(); // 全部清空时重置拉黑集合（P9a-2）
     return ConversationState(peers: state.peers, entries: const [], clearedEntryIds: cleared);
   }
 }

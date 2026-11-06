@@ -9,8 +9,14 @@
     "collapse": "收起",
     "composeHint": "输入消息…",
     "send": "发送",
+    "clearConversation": "清空当前会话",
+    "clearPeerDialog": {
+      "title": "清空会话",
+      "content": "确定要清空与 {name} 的全部会话记录吗？不会删除文件，也不会取消正在进行的传输。"
+    },
     "receiveCard": {
       "title": "来自 {name} 的文件",
+      "titleMessage": "来自 {name} 的消息",
       "filesCount": "{n} 个文件",
       "moreFiles": "+{n} 个更多",
       "canceled": "发送方已取消请求。"
@@ -152,7 +158,9 @@
       "downloads": "(下载)",
       "saveToGallery": "保存到相册",
       "saveToHistory": "保存到历史记录",
-      "verifyChecksums": "接收文件时验证校验和"
+      "verifyChecksums": "接收文件时验证校验和",
+      "conversationReceive": "在聊天界面显示收到的消息和文件",
+      "clearConversationHistory": "清空全部会话记录"
     },
     "send": {
       "title": "发送",
@@ -496,6 +504,10 @@
     "historyClearDialog": {
       "title": "清空历史记录",
       "content": "确定要清空全部历史记录吗？"
+    },
+    "conversationClearDialog": {
+      "title": "清空会话记录",
+      "content": "确定要清空全部会话记录吗？不会删除文件，也不会取消正在进行的传输。"
     },
     "localNetworkUnauthorized": {
       "title": "@:dialogs.noPermission.title",

@@ -72,6 +72,43 @@ void main() {
     );
   }
 
+  /// 文字消息会话 vm（P9a-1）：单 text 文件 + preview 非空，命中 session.message 判定。
+  ConversationReceiveCardVm messageVm(String text) {
+    return ConversationReceiveCardVm(
+      session: ReceiveSessionState(
+        sessionId: 'session-1',
+        status: SessionStatus.waiting,
+        sender: sender(),
+        senderAlias: 'Nick',
+        files: {
+          'm': ReceivingFile(
+            file: FileDto(
+              id: 'm',
+              fileName: 'msg.txt',
+              size: text.length,
+              fileType: FileType.text,
+              hash: null,
+              preview: text,
+              metadata: null,
+            ),
+            token: null,
+            desiredName: null,
+            path: null,
+            savedToGallery: false,
+            errorMessage: null,
+          ),
+        },
+        startTime: null,
+        endTime: null,
+        destinationDirectory: '/tmp',
+        cacheDirectory: '/tmp/cache',
+        saveToGallery: false,
+        createdDirectories: {},
+      ),
+      progressOf: (_) => 0,
+    );
+  }
+
   Future<void> pumpCard(
     WidgetTester tester, {
     required ConversationReceiveCardVm cardVm,
@@ -198,5 +235,30 @@ void main() {
     // 前 4 个可见，后 2 个折叠
     expect(find.text('f0.bin'), findsOneWidget);
     expect(find.text('f4.bin'), findsNothing);
+  });
+
+  testWidgets('文字消息（P9a-1）：渲染正文与接受/拒绝，接受携带空 fileNameMap（走 204 确认）', (tester) async {
+    Map<String, String>? accepted;
+    var declined = false;
+    await pumpCard(
+      tester,
+      cardVm: messageVm('hello there'),
+      onAccept: (map) => accepted = map,
+      onDecline: () => declined = true,
+    );
+
+    // 文字确认视图：标题 + 正文，不出现文件勾选列表
+    expect(find.text(t.conversation.receiveCard.titleMessage(name: 'Nick')), findsOneWidget);
+    expect(find.text('hello there'), findsOneWidget);
+    expect(find.byType(Checkbox), findsNothing);
+
+    // 接受固定传空 map（消息确认走 204，不下载承载文字的 text 文件）
+    await tester.tap(find.text(t.general.accept));
+    await tester.pump();
+    expect(accepted, isEmpty);
+
+    await tester.tap(find.text(t.general.decline));
+    await tester.pump();
+    expect(declined, isTrue);
   });
 }

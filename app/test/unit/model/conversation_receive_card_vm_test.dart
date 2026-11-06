@@ -121,14 +121,30 @@ void main() {
       }
     });
 
-    test('消息请求不建卡片（已被自动确认写气泡，waiting 只是旧页面等关闭）', () {
+    test('消息请求也建卡片（P9a-1：conversation 跳过旧页，文字确认入口须由卡片提供）', () {
       // 单 text 文件 + preview 非空 = session.message 判定命中（与协议条件一致）
       final messageSession = session({'m': file('m', fileType: FileType.text, preview: 'hello')});
-      expect(conversationReceiveCardEligible(session: messageSession, presentation: TransferPresentation.conversation), isFalse);
+      expect(conversationReceiveCardEligible(session: messageSession, presentation: TransferPresentation.conversation), isTrue);
+      // legacy 消息仍不建卡片（走旧 ReceivePage）
+      expect(conversationReceiveCardEligible(session: messageSession, presentation: TransferPresentation.legacy), isFalse);
     });
   });
 
   group('ConversationReceiveCardVm', () {
+    test('isMessage/message：单 text 文件带 preview 命中消息，普通文件为 null', () {
+      final msg = vm({
+        'm': file('m', fileType: FileType.text, preview: 'hello'),
+      });
+      expect(msg.isMessage, isTrue);
+      expect(msg.message, 'hello');
+
+      final notMsg = vm({
+        'a': file('a'),
+      });
+      expect(notMsg.isMessage, isFalse);
+      expect(notMsg.message, isNull);
+    });
+
     test('allFileNameMap：默认全选，desiredName 优先作固化名', () {
       final card = vm({
         'a': file('a', desiredName: 'renamed.txt'),

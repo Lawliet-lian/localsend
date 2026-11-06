@@ -8,6 +8,7 @@ import 'package:localsend_app/pages/changelog_page.dart';
 import 'package:localsend_app/pages/donation/donation_page.dart';
 import 'package:localsend_app/pages/settings/network_interfaces_page.dart';
 import 'package:localsend_app/pages/tabs/settings_tab_controller.dart';
+import 'package:localsend_app/provider/conversation_provider.dart';
 import 'package:localsend_app/provider/network/server/server_provider.dart';
 import 'package:localsend_app/provider/settings_provider.dart';
 import 'package:localsend_app/provider/version_provider.dart';
@@ -19,6 +20,7 @@ import 'package:localsend_app/util/native/macos_channel.dart';
 import 'package:localsend_app/util/native/pick_directory_path.dart';
 import 'package:localsend_app/util/native/platform_check.dart';
 import 'package:localsend_app/widget/custom_dropdown_button.dart';
+import 'package:localsend_app/widget/dialogs/conversation_clear_dialog.dart';
 import 'package:localsend_app/widget/dialogs/encryption_disabled_notice.dart';
 import 'package:localsend_app/widget/dialogs/pin_dialog.dart';
 import 'package:localsend_app/widget/dialogs/quick_save_from_favorites_notice.dart';
@@ -268,6 +270,38 @@ class SettingsTab extends StatelessWidget {
                   onChanged: (b) async {
                     await ref.notifier(settingsProvider).setSaveToHistory(b);
                   },
+                ),
+                // 会话接收展示开关（P9a-2）：开启后新的原生 HTTP 接收请求进入会话 UI；默认关闭保持 legacy。
+                // 切换只影响后续请求——进行中的 session 展示模式在创建时已固定（P7a），不会被静默迁移。
+                _BooleanEntry(
+                  label: t.settingsTab.receive.conversationReceive,
+                  value: vm.settings.conversationReceiveEnabled,
+                  onChanged: (b) async {
+                    await ref.notifier(settingsProvider).setConversationReceiveEnabled(b);
+                  },
+                ),
+                // 清空全部会话记录（P9a-2）：确认后只清除新会话记录，不删除真实文件、不取消传输，
+                // 也不触碰独立的旧接收历史。
+                _SettingsEntry(
+                  label: t.settingsTab.receive.clearConversationHistory,
+                  child: Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: TextButton(
+                      onPressed: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (_) => ConversationClearDialog(
+                            title: t.dialogs.conversationClearDialog.title,
+                            content: t.dialogs.conversationClearDialog.content,
+                          ),
+                        );
+                        if (confirmed == true) {
+                          ref.redux(conversationProvider).dispatch(ClearAllEntriesAction());
+                        }
+                      },
+                      child: Text(t.general.delete),
+                    ),
+                  ),
                 ),
                 if (vm.advanced)
                   _BooleanEntry(
