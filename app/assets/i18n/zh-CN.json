@@ -1,5 +1,29 @@
 {
   "appName": "LocalSend",
+  "conversation": {
+    "title": "会话",
+    "empty": "暂无会话",
+    "selectDevice": "选择设备",
+    "offline": "设备已离线",
+    "expand": "展开",
+    "collapse": "收起",
+    "composeHint": "输入消息…",
+    "send": "发送",
+    "outcome": {
+      "preparing": "准备中…",
+      "waiting": "等待对方响应…",
+      "transferring": "传输中…",
+      "finished": "已完成",
+      "partialFailure": "已完成但部分失败",
+      "declined": "已被拒绝",
+      "busy": "对方正忙",
+      "tooManyAttempts": "PIN 尝试次数过多",
+      "canceledBySender": "发送方已取消",
+      "canceledByReceiver": "接收方已取消",
+      "failed": "失败",
+      "incomplete": "上次传输未完成"
+    }
+  },
   "general": {
     "accept": "接受",
     "accepted": "已接受",

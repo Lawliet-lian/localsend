@@ -6,6 +6,7 @@ import 'package:localsend_app/config/init.dart';
 import 'package:localsend_app/config/theme.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/pages/home_page_controller.dart';
+import 'package:localsend_app/pages/tabs/conversation_tab.dart';
 import 'package:localsend_app/pages/tabs/receive_tab.dart';
 import 'package:localsend_app/pages/tabs/send_tab.dart';
 import 'package:localsend_app/pages/tabs/settings_tab.dart';
@@ -17,7 +18,9 @@ import 'package:refena_flutter/refena_flutter.dart';
 enum HomeTab {
   receive(Icons.wifi),
   send(Icons.send),
-  settings(Icons.settings)
+  settings(Icons.settings),
+  // 会话入口追加在末尾：不改变原有 tab 的 index（方案 6.1）
+  conversation(Icons.forum)
   ;
 
   const HomeTab(this.icon);
@@ -32,6 +35,8 @@ enum HomeTab {
         return t.sendTab.title;
       case HomeTab.settings:
         return t.settingsTab.title;
+      case HomeTab.conversation:
+        return t.conversation.title;
     }
   }
 }
@@ -146,6 +151,7 @@ class _HomePageState extends State<HomePage> with Refena {
                             ReceiveTab(),
                             SendTab(),
                             SettingsTab(),
+                            ConversationTab(), // 必须与 HomeTab.values 顺序一致（index 3 = conversation）
                           ],
                         ),
                         if (_dragAndDropIndicator)

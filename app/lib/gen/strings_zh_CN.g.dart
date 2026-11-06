@@ -42,6 +42,8 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
   @override
   String get appName => 'LocalSend';
   @override
+  late final Translations$conversation$zh_CN conversation = Translations$conversation$zh_CN.internal(_root);
+  @override
   late final Translations$general$zh_CN general = Translations$general$zh_CN.internal(_root);
   @override
   late final Translations$receiveTab$zh_CN receiveTab = Translations$receiveTab$zh_CN.internal(_root);
@@ -95,6 +97,33 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
   late final Translations$web$zh_CN web = Translations$web$zh_CN.internal(_root);
   @override
   late final Translations$assetPicker$zh_CN assetPicker = Translations$assetPicker$zh_CN.internal(_root);
+}
+
+// Path: conversation
+class Translations$conversation$zh_CN extends Translations$conversation$en {
+  Translations$conversation$zh_CN.internal(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '会话';
+  @override
+  String get empty => '暂无会话';
+  @override
+  String get selectDevice => '选择设备';
+  @override
+  String get offline => '设备已离线';
+  @override
+  String get expand => '展开';
+  @override
+  String get collapse => '收起';
+  @override
+  String get composeHint => '输入消息…';
+  @override
+  String get send => '发送';
+  @override
+  late final Translations$conversation$outcome$zh_CN outcome = Translations$conversation$outcome$zh_CN.internal(_root);
 }
 
 // Path: general
@@ -838,6 +867,39 @@ class Translations$assetPicker$zh_CN extends Translations$assetPicker$en {
   String get sNameDurationLabel => '时长';
   @override
   String get sUnitAssetCountLabel => '计数';
+}
+
+// Path: conversation.outcome
+class Translations$conversation$outcome$zh_CN extends Translations$conversation$outcome$en {
+  Translations$conversation$outcome$zh_CN.internal(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get preparing => '准备中…';
+  @override
+  String get waiting => '等待对方响应…';
+  @override
+  String get transferring => '传输中…';
+  @override
+  String get finished => '已完成';
+  @override
+  String get partialFailure => '已完成但部分失败';
+  @override
+  String get declined => '已被拒绝';
+  @override
+  String get busy => '对方正忙';
+  @override
+  String get tooManyAttempts => 'PIN 尝试次数过多';
+  @override
+  String get canceledBySender => '发送方已取消';
+  @override
+  String get canceledByReceiver => '接收方已取消';
+  @override
+  String get failed => '失败';
+  @override
+  String get incomplete => '上次传输未完成';
 }
 
 // Path: receiveTab.infoBox

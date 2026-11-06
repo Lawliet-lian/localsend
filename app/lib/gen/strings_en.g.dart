@@ -46,6 +46,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
   /// en: 'LocalSend'
   String get appName => 'LocalSend';
 
+  late final Translations$conversation$en conversation = Translations$conversation$en.internal(_root);
   late final Translations$general$en general = Translations$general$en.internal(_root);
   late final Translations$receiveTab$en receiveTab = Translations$receiveTab$en.internal(_root);
   late final Translations$sendTab$en sendTab = Translations$sendTab$en.internal(_root);
@@ -73,6 +74,41 @@ class Translations with BaseTranslations<AppLocale, Translations> {
   late final Translations$tray$en tray = Translations$tray$en.internal(_root);
   late final Translations$web$en web = Translations$web$en.internal(_root);
   late final Translations$assetPicker$en assetPicker = Translations$assetPicker$en.internal(_root);
+}
+
+// Path: conversation
+class Translations$conversation$en {
+  Translations$conversation$en.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// en: 'Conversations'
+  String get title => 'Conversations';
+
+  /// en: 'No conversations yet'
+  String get empty => 'No conversations yet';
+
+  /// en: 'Select a device'
+  String get selectDevice => 'Select a device';
+
+  /// en: 'Device is offline'
+  String get offline => 'Device is offline';
+
+  /// en: 'Expand'
+  String get expand => 'Expand';
+
+  /// en: 'Collapse'
+  String get collapse => 'Collapse';
+
+  /// en: 'Type a message…'
+  String get composeHint => 'Type a message…';
+
+  /// en: 'Send'
+  String get send => 'Send';
+
+  late final Translations$conversation$outcome$en outcome = Translations$conversation$outcome$en.internal(_root);
 }
 
 // Path: general
@@ -945,6 +981,51 @@ class Translations$assetPicker$en {
 
   /// en: 'count'
   String get sUnitAssetCountLabel => 'count';
+}
+
+// Path: conversation.outcome
+class Translations$conversation$outcome$en {
+  Translations$conversation$outcome$en.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// en: 'Preparing…'
+  String get preparing => 'Preparing…';
+
+  /// en: 'Waiting for response…'
+  String get waiting => 'Waiting for response…';
+
+  /// en: 'Transferring…'
+  String get transferring => 'Transferring…';
+
+  /// en: 'Finished'
+  String get finished => 'Finished';
+
+  /// en: 'Finished with errors'
+  String get partialFailure => 'Finished with errors';
+
+  /// en: 'Declined'
+  String get declined => 'Declined';
+
+  /// en: 'Recipient busy'
+  String get busy => 'Recipient busy';
+
+  /// en: 'Too many attempts'
+  String get tooManyAttempts => 'Too many attempts';
+
+  /// en: 'Canceled by sender'
+  String get canceledBySender => 'Canceled by sender';
+
+  /// en: 'Canceled by receiver'
+  String get canceledByReceiver => 'Canceled by receiver';
+
+  /// en: 'Failed'
+  String get failed => 'Failed';
+
+  /// en: 'Last transfer did not complete'
+  String get incomplete => 'Last transfer did not complete';
 }
 
 // Path: receiveTab.infoBox

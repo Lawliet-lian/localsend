@@ -75,6 +75,7 @@ class SettingsService extends PureNotifier<SettingsState> {
     deviceModel: _persistence.getDeviceModel(),
     shareViaLinkAutoAccept: _persistence.getShareViaLinkAutoAccept(),
     receiveViaLinkAutoAccept: _persistence.getReceiveViaLinkAutoAccept(),
+    conversationReceiveEnabled: _persistence.getConversationReceiveEnabled(),
     createChecksums: _persistence.getCreateChecksums(),
     verifyChecksums: _persistence.getVerifyChecksums(),
     discoveryTimeout: _persistence.getDiscoveryTimeout(),
@@ -295,6 +296,16 @@ class SettingsService extends PureNotifier<SettingsState> {
 
     state = state.copyWith(
       receiveViaLinkAutoAccept: receiveViaLinkAutoAccept,
+    );
+  }
+
+  /// 会话接收展示开关（P7a）：只影响后续新建的接收会话；
+  /// 已接受的传输在创建时就固定了 presentation，不受切换影响（方案 5.3）。
+  Future<void> setConversationReceiveEnabled(bool conversationReceiveEnabled) async {
+    await _persistence.setConversationReceiveEnabled(conversationReceiveEnabled);
+
+    state = state.copyWith(
+      conversationReceiveEnabled: conversationReceiveEnabled,
     );
   }
 

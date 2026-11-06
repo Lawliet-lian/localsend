@@ -1,5 +1,29 @@
 {
   "appName": "LocalSend",
+  "conversation": {
+    "title": "Conversations",
+    "empty": "No conversations yet",
+    "selectDevice": "Select a device",
+    "offline": "Device is offline",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "composeHint": "Type a message…",
+    "send": "Send",
+    "outcome": {
+      "preparing": "Preparing…",
+      "waiting": "Waiting for response…",
+      "transferring": "Transferring…",
+      "finished": "Finished",
+      "partialFailure": "Finished with errors",
+      "declined": "Declined",
+      "busy": "Recipient busy",
+      "tooManyAttempts": "Too many attempts",
+      "canceledBySender": "Canceled by sender",
+      "canceledByReceiver": "Canceled by receiver",
+      "failed": "Failed",
+      "incomplete": "Last transfer did not complete"
+    }
+  },
   "general": {
     "accept": "Accept",
     "accepted": "Accepted",

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:localsend_app/model/conversation/conversation_models.dart';
+import 'package:localsend_app/model/conversation/transfer_presentation.dart';
 import 'package:localsend_app/model/cross_file.dart';
 import 'package:localsend_app/model/send_mode.dart';
 import 'package:localsend_app/model/state/send/send_session_state.dart';
@@ -12,8 +14,10 @@ import 'package:localsend_app/pages/send_page.dart';
 import 'package:localsend_app/provider/device_info_provider.dart';
 import 'package:localsend_app/provider/file_transfer_provider.dart';
 import 'package:localsend_app/provider/http_provider.dart';
+import 'package:localsend_app/provider/network/conversation_send_recorder.dart';
 import 'package:localsend_app/provider/selection/selected_sending_files_provider.dart';
 import 'package:localsend_app/provider/settings_provider.dart';
+import 'package:localsend_app/provider/transfer_presentation_provider.dart';
 import 'package:localsend_app/widget/dialogs/pin_dialog.dart';
 import 'package:localsend_isolates/isolate.dart';
 import 'package:localsend_isolates/model/device.dart';
@@ -59,6 +63,10 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
   /// Session ID -> Cancel token
   final _prepareUploadCancelTokens = <String, rust_cancel.RsCancellationToken>{};
 
+  /// 会话模式（presentation == conversation）session 的发送记录器（P6b）：
+  /// legacy session 的所有调用都是空操作，旧发送路径不产生任何会话记录。
+  late final ConversationSendRecorder _conversationRecorder = ConversationSendRecorder(ref);
+
   @override
   Map<String, SendSessionState> init() {
     return {};
@@ -85,15 +93,28 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
   /// Starts a session.
   /// If [background] is true, then the session closes itself on success and no pages will be open
   /// If [background] is false, then this method will open pages by itself and waits for user input to close the session.
+  /// [presentation] selects the display path of this session (P6a): it defaults to
+  /// [TransferPresentation.legacy] so all existing callers keep the exact old behavior;
+  /// [TransferPresentation.conversation] never opens the legacy pages (same flow as background).
   Future<void> startSession({
     required Device target,
     required List<CrossFile> files,
     required bool background,
+    TransferPresentation presentation = TransferPresentation.legacy,
   }) async {
     // Pinned to the device the user picked, so the request is not sent at all
     // if someone else answers on that address.
     final client = ref.read(httpProvider).pinnedTo(target.fingerprint);
     final sessionId = _uuid.v4();
+
+    if (presentation == TransferPresentation.conversation) {
+      // 会话模式绝不跳转旧页面：复用 background 流程（不开 SendPage/ProgressPage，
+      // 成功后自动 closeSession）；会话内 UI 由 presentation 映射 + session 状态驱动（P6b）。
+      background = true;
+    }
+    // 每个 session 独立保存展示模式（方案 5.3）：不得用当前 tab 推断
+    ref.notifier(transferPresentationProvider).set(sessionId, presentation);
+
     final createChecksums = ref.read(settingsProvider).createChecksums;
 
     // The ids are assigned upfront, so the checksums calculated below
@@ -152,6 +173,14 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
           sessionId: sessionId,
           statuses: {for (final f in selectedFiles) f.id: FileStatus.queue},
         );
+
+    // P6b/P6c：会话 session 创建后立即登记记录（preparing）；纯文字会话提取原文记为 text；legacy 空操作
+    _conversationRecorder.onSessionCreated(
+      sessionId: sessionId,
+      target: target,
+      selectedFiles: selectedFiles,
+      text: ConversationSendRecorder.extractMessageText(files),
+    );
 
     if (!background) {
       // ignore: use_build_context_synchronously, unawaited_futures
@@ -231,6 +260,9 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
       state: (_) => requestState,
     );
 
+    // P6b：校验和完成、即将发出 prepare 请求 → 进入等待对方决定的阶段
+    _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.waiting);
+
     final originDevice = ref.read(deviceFullInfoProvider);
     final requestDto = rust_model.PrepareUploadRequestDto(
       info: rust_model.RegisterDto(
@@ -288,6 +320,8 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
               pinFirstAttempt = false;
 
               if (pin == null) {
+                // P6b：先记录取消来源，再走原取消逻辑（PIN 弹窗取消 = 发送端取消）
+                _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.canceledBySender);
                 state = state.updateSession(
                   sessionId: sessionId,
                   state: (s) => s?.copyWith(
@@ -298,6 +332,8 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
               }
               break;
             case 403:
+              // P6b：对方拒绝
+              _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.declined);
               state = state.updateSession(
                 sessionId: sessionId,
                 state: (s) => s?.copyWith(
@@ -306,6 +342,8 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
               );
               return;
             case 409:
+              // P6b：对方正忙
+              _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.busy);
               state = state.updateSession(
                 sessionId: sessionId,
                 state: (s) => s?.copyWith(
@@ -314,6 +352,8 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
               );
               return;
             case 429:
+              // P6b：PIN 尝试次数过多
+              _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.tooManyAttempts);
               state = state.updateSession(
                 sessionId: sessionId,
                 state: (s) => s?.copyWith(
@@ -322,6 +362,8 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
               );
               return;
             default:
+              // P6b：其他状态码视为整体失败，不得伪成功
+              _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.failed, error: e.humanErrorMessage);
               state = state.updateSession(
                 sessionId: sessionId,
                 state: (s) => s?.copyWith(
@@ -332,6 +374,8 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
               return;
           }
         } catch (e) {
+          // P6b：网络/序列化等异常同样是失败终态
+          _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.failed, error: e.humanErrorMessage);
           state = state.updateSession(
             sessionId: sessionId,
             state: (s) => s?.copyWith(
@@ -366,6 +410,8 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
           ),
         );
       } catch (e) {
+        // P6b：prepare 响应解析失败 → 整体失败
+        _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.failed, error: e.humanErrorMessage);
         state = state.updateSession(
           sessionId: sessionId,
           state: (s) => s?.copyWith(
@@ -385,6 +431,9 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
           status: SessionStatus.finished,
         ),
       );
+
+      // P6b：204/无文件接受——先记录结果，再清理（方案 5.4）
+      _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.finished);
 
       if (state[sessionId]?.background == false) {
         // Pop back to the existing HomePage instead of pushing a new one:
@@ -445,6 +494,9 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
         files: sendingFiles,
       ),
     );
+
+    // P6b：进入上传阶段，未接受（无 token）的文件标 skipped
+    _conversationRecorder.onTransferring(sessionId: sessionId, files: sendingFiles);
 
     // Keep the process alive for the whole transfer. Started here, while the app is still in the
     // foreground, because Android 12+ rejects starting a foreground service from the background.
@@ -516,6 +568,9 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
     } else {
       final hasError = ref.read(fileTransferProvider).getStatuses(sessionId).any((status) => status == FileStatus.failed);
       if (!hasError && sessionState.background == true) {
+        // P6b：后台成功不发布 finished 状态就直接清理，终态快照必须在 closeSession 之前形成
+        // （closeSession 会移除 presentation 映射，之后就识别不出会话 session 了）
+        _conversationRecorder.onTerminalSnapshot(session: sessionState, outcome: ConversationOutcome.finished);
         // close session because everything is fine and it is in background
         closeSession(sessionId);
         _logger.info('Transfer finished and session removed.');
@@ -527,6 +582,12 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
             status: hasError ? SessionStatus.finishedWithErrors : SessionStatus.finished,
             endTime: DateTime.now().millisecondsSinceEpoch,
           ),
+        );
+
+        // P6b：部分文件失败记 partialFailure，不得伪成功
+        _conversationRecorder.onTerminalSnapshot(
+          session: state[sessionId]!,
+          outcome: hasError ? ConversationOutcome.partialFailure : ConversationOutcome.finished,
         );
 
         if (hasError) {
@@ -712,6 +773,8 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
     if (sessionState == null) {
       return;
     }
+    // P6b：先记录取消来源，再调用原取消逻辑（后续 closeSession 会清理映射）
+    _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.canceledBySender);
     final remoteSessionId = sessionState.remoteSessionId;
 
     _cancelRunningRequests(sessionState);
@@ -747,6 +810,8 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
     if (sessionState == null) {
       return;
     }
+    // P6b：远端取消必须区分来源（不变量：取消记录双向分开）
+    _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.canceledByReceiver, error: sessionState.errorMessage);
     TransferNotification.stop(sessionId);
     _cancelRunningRequests(sessionState);
 
@@ -783,6 +848,8 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
     TransferNotification.stop(sessionId);
     _hashCancelTokens.remove(sessionId)?.cancel();
     _prepareUploadCancelTokens.remove(sessionId)?.cancel();
+    // 方案 5.3：session 清理时同步移除展示模式映射，防止泄漏
+    ref.notifier(transferPresentationProvider).remove(sessionId);
     state = state.removeSession(ref, sessionId);
     if (sessionState.status == SessionStatus.finished && ref.read(settingsProvider).sendMode == SendMode.single) {
       // clear selected files
@@ -802,6 +869,7 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
       cancelToken.cancel();
     }
     _prepareUploadCancelTokens.clear();
+    ref.notifier(transferPresentationProvider).clearAll();
     state = {};
     ref.notifier(fileTransferProvider).removeAllSessions();
   }

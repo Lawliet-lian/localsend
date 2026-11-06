@@ -92,6 +92,7 @@ const _deviceType = 'ls_device_type';
 const _deviceModel = 'ls_device_model';
 const _shareViaLinkAutoAccept = 'ls_share_via_link_auto_accept';
 const _receiveViaLinkAutoAccept = 'ls_receive_via_link_auto_accept';
+const _conversationReceiveEnabled = 'ls_conversation_receive_enabled';
 const _createChecksums = 'ls_create_checksums';
 const _verifyChecksums = 'ls_verify_checksums';
 const _advancedSettingsKey = 'ls_advanced_settings';
@@ -394,6 +395,15 @@ class PersistenceService {
 
   Future<void> setReceiveViaLinkAutoAccept(bool receiveViaLinkAutoAccept) async {
     await _prefs.setBool(_receiveViaLinkAutoAccept, receiveViaLinkAutoAccept);
+  }
+
+  /// 会话接收展示开关（P7a）：开启后新的原生 HTTP 接收请求进入会话 UI；默认关闭保持 legacy。
+  bool getConversationReceiveEnabled() {
+    return _prefs.getBool(_conversationReceiveEnabled) ?? false;
+  }
+
+  Future<void> setConversationReceiveEnabled(bool conversationReceiveEnabled) async {
+    await _prefs.setBool(_conversationReceiveEnabled, conversationReceiveEnabled);
   }
 
   bool getCreateChecksums() {

@@ -154,6 +154,12 @@ class SettingsStateMapper extends ClassMapperBase<SettingsState> {
     'receiveViaLinkAutoAccept',
     _$receiveViaLinkAutoAccept,
   );
+  static bool _$conversationReceiveEnabled(SettingsState v) =>
+      v.conversationReceiveEnabled;
+  static const Field<SettingsState, bool> _f$conversationReceiveEnabled = Field(
+    'conversationReceiveEnabled',
+    _$conversationReceiveEnabled,
+  );
   static bool _$createChecksums(SettingsState v) => v.createChecksums;
   static const Field<SettingsState, bool> _f$createChecksums = Field(
     'createChecksums',
@@ -204,6 +210,7 @@ class SettingsStateMapper extends ClassMapperBase<SettingsState> {
     #deviceModel: _f$deviceModel,
     #shareViaLinkAutoAccept: _f$shareViaLinkAutoAccept,
     #receiveViaLinkAutoAccept: _f$receiveViaLinkAutoAccept,
+    #conversationReceiveEnabled: _f$conversationReceiveEnabled,
     #createChecksums: _f$createChecksums,
     #verifyChecksums: _f$verifyChecksums,
     #discoveryTimeout: _f$discoveryTimeout,
@@ -239,6 +246,7 @@ class SettingsStateMapper extends ClassMapperBase<SettingsState> {
       deviceModel: data.dec(_f$deviceModel),
       shareViaLinkAutoAccept: data.dec(_f$shareViaLinkAutoAccept),
       receiveViaLinkAutoAccept: data.dec(_f$receiveViaLinkAutoAccept),
+      conversationReceiveEnabled: data.dec(_f$conversationReceiveEnabled),
       createChecksums: data.dec(_f$createChecksums),
       verifyChecksums: data.dec(_f$verifyChecksums),
       discoveryTimeout: data.dec(_f$discoveryTimeout),
@@ -340,6 +348,7 @@ abstract class SettingsStateCopyWith<$R, $In extends SettingsState, $Out>
     String? deviceModel,
     bool? shareViaLinkAutoAccept,
     bool? receiveViaLinkAutoAccept,
+    bool? conversationReceiveEnabled,
     bool? createChecksums,
     bool? verifyChecksums,
     int? discoveryTimeout,
@@ -403,6 +412,7 @@ class _SettingsStateCopyWithImpl<$R, $Out>
     Object? deviceModel = $none,
     bool? shareViaLinkAutoAccept,
     bool? receiveViaLinkAutoAccept,
+    bool? conversationReceiveEnabled,
     bool? createChecksums,
     bool? verifyChecksums,
     int? discoveryTimeout,
@@ -440,6 +450,8 @@ class _SettingsStateCopyWithImpl<$R, $Out>
         #shareViaLinkAutoAccept: shareViaLinkAutoAccept,
       if (receiveViaLinkAutoAccept != null)
         #receiveViaLinkAutoAccept: receiveViaLinkAutoAccept,
+      if (conversationReceiveEnabled != null)
+        #conversationReceiveEnabled: conversationReceiveEnabled,
       if (createChecksums != null) #createChecksums: createChecksums,
       if (verifyChecksums != null) #verifyChecksums: verifyChecksums,
       if (discoveryTimeout != null) #discoveryTimeout: discoveryTimeout,
@@ -486,6 +498,10 @@ class _SettingsStateCopyWithImpl<$R, $Out>
     receiveViaLinkAutoAccept: data.get(
       #receiveViaLinkAutoAccept,
       or: $value.receiveViaLinkAutoAccept,
+    ),
+    conversationReceiveEnabled: data.get(
+      #conversationReceiveEnabled,
+      or: $value.conversationReceiveEnabled,
     ),
     createChecksums: data.get(#createChecksums, or: $value.createChecksums),
     verifyChecksums: data.get(#verifyChecksums, or: $value.verifyChecksums),

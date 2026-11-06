@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:localsend_app/model/conversation/transfer_presentation.dart';
 import 'package:localsend_app/model/state/server/receive_session_state.dart';
 import 'package:localsend_app/model/state/server/receiving_file.dart';
 import 'package:localsend_app/pages/home_page.dart';
@@ -22,6 +23,7 @@ import 'package:localsend_app/provider/security_provider.dart';
 import 'package:localsend_app/provider/selection/selected_receiving_files_provider.dart';
 import 'package:localsend_app/provider/selection/selected_sending_files_provider.dart';
 import 'package:localsend_app/provider/settings_provider.dart';
+import 'package:localsend_app/provider/transfer_presentation_provider.dart';
 import 'package:localsend_app/util/native/directories.dart';
 import 'package:localsend_app/util/native/platform_check.dart';
 import 'package:localsend_app/util/native/tray_helper.dart';
@@ -90,6 +92,15 @@ class ReceiveController {
 
     _logger.info('Session Id: $sessionId');
     _logger.info('Destination Directory: $destinationDir');
+
+    // P7a：在请求创建时固定本次接收的展示模式（之后切换设置不影响本 session，方案 5.3）。
+    // 判定只来自现有请求路径：链接（web 上传页）永远 legacy；WebRTC 走独立路径不经过这里。
+    // 开关默认关闭时结果恒为 legacy，接收行为与改造前完全一致（门槛：legacy 零变化）。
+    final presentation = decideReceivePresentation(enabled: settings.conversationReceiveEnabled, viaWebUpload: server.getState().webUpload);
+    if (presentation == TransferPresentation.conversation) {
+      // 与发送侧共用同一套 sessionId→presentation 映射；legacy 不占存储（get 默认 legacy）
+      server.ref.notifier(transferPresentationProvider).set(sessionId, presentation);
+    }
 
     server.setState(
       (oldState) => oldState?.copyWith(
@@ -687,6 +698,9 @@ class ReceiveController {
     }
 
     TransferNotification.stop(sessionId);
+
+    // P7a：接收 session 清理时同步移除展示模式映射，防止泄漏（与发送侧 closeSession 一致）
+    server.ref.notifier(transferPresentationProvider).remove(sessionId);
 
     server.setState(
       (oldState) => oldState?.copyWith(
