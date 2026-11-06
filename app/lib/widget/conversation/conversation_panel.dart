@@ -45,6 +45,16 @@ class ConversationPanel extends StatelessWidget {
   /// 发送纯文字消息（原文未 trim；接线层发起 conversation 发送，P6c）。
   final ValueChanged<String> onSendText;
 
+  /// 附件选择回调（P9b）：透传给 composer；null 时附件按钮不渲染（dumb 合同）。
+  final VoidCallback? onPickAttachment;
+
+  /// 附件按钮门槛投影（P9b）：接线层 watch conversationAttachmentEnabledProvider。
+  final bool attachmentEnabled;
+
+  /// 选择器打开期间锁住会话发送（P9b，方案 6.3）：接线层传 picking 标志；
+  /// 仅禁用发送/附件按钮，草稿保留。设备切换锁由接线层在 onSelect 里自行拦截。
+  final bool sendingLocked;
+
   /// 会话内接收卡片（P7c）：仅当活跃 conversation 接收 session 的对端是
   /// **当前选中设备**时由接线层传入；legacy/无 session 为 null，详情页不渲染。
   final ConversationReceiveCardVm? receiveCard;
@@ -69,6 +79,9 @@ class ConversationPanel extends StatelessWidget {
     required this.draftText,
     required this.onDraftChanged,
     required this.onSendText,
+    this.onPickAttachment,
+    this.attachmentEnabled = true,
+    this.sendingLocked = false,
     this.receiveCard,
     this.onReceiveAccept,
     this.onReceiveDecline,
@@ -164,6 +177,9 @@ class ConversationPanel extends StatelessWidget {
       draftText: draftText,
       onDraftChanged: onDraftChanged,
       onSendText: onSendText,
+      onPickAttachment: onPickAttachment,
+      attachmentEnabled: attachmentEnabled,
+      sendingLocked: sendingLocked,
       // P7c：卡片已在接线层按选中 peer 匹配，这里直接挂载
       receiveCard: receiveCard,
       onReceiveAccept: onReceiveAccept,
@@ -191,6 +207,9 @@ class _ConversationDetail extends StatelessWidget {
   final String draftText;
   final ValueChanged<String> onDraftChanged;
   final ValueChanged<String> onSendText;
+  final VoidCallback? onPickAttachment;
+  final bool attachmentEnabled;
+  final bool sendingLocked;
   final ConversationReceiveCardVm? receiveCard;
   final void Function(Map<String, String> fileNameMap)? onReceiveAccept;
   final VoidCallback? onReceiveDecline;
@@ -208,6 +227,9 @@ class _ConversationDetail extends StatelessWidget {
     required this.draftText,
     required this.onDraftChanged,
     required this.onSendText,
+    required this.onPickAttachment,
+    required this.attachmentEnabled,
+    required this.sendingLocked,
     required this.receiveCard,
     required this.onReceiveAccept,
     required this.onReceiveDecline,
@@ -298,13 +320,16 @@ class _ConversationDetail extends StatelessWidget {
               : _EntryListView(entries: entries),
         ),
         // 输入栏（P6c）：离线设备禁用发送但保留草稿（方案 6.2：离线仍可查看历史、禁发送）；
-        // key 按 peerKey 重建，切设备不串输入
+        // key 按 peerKey 重建，切设备不串输入；
+        // P9b：选择器打开期间（sendingLocked）同样禁用发送，草稿不受影响
         ConversationComposer(
           key: ValueKey(view.peerKey),
           initialValue: draftText,
-          enabled: view.online,
+          enabled: view.online && !sendingLocked,
           onChanged: onDraftChanged,
           onSend: onSendText,
+          onPickAttachment: onPickAttachment,
+          attachmentEnabled: attachmentEnabled,
         ),
       ],
     );

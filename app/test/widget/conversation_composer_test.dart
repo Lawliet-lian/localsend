@@ -11,6 +11,8 @@ void main() {
     String initialValue = '',
     required ValueChanged<String> onSend,
     ValueChanged<String>? onChanged,
+    VoidCallback? onPickAttachment,
+    bool attachmentEnabled = true,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -20,6 +22,8 @@ void main() {
             enabled: enabled,
             onChanged: onChanged ?? (_) {},
             onSend: onSend,
+            onPickAttachment: onPickAttachment,
+            attachmentEnabled: attachmentEnabled,
           ),
         ),
       ),
@@ -115,6 +119,54 @@ void main() {
       await pumpComposer(tester, enabled: true, onSend: (_) {});
 
       expect(find.text(t.conversation.composeHint), findsOneWidget);
+    });
+  });
+
+  // ---- P9b 附件按钮（dumb 合同：传与不传决定渲染，门槛只控制置灰） ----
+
+  group('P9b 附件按钮', () {
+    testWidgets('testAttachmentButtonAbsentWithoutCallback', (tester) async {
+      // 未传 onPickAttachment（既有纯文字调用点）：按钮不出现
+      await pumpComposer(tester, enabled: true, onSend: (_) {});
+
+      expect(find.byIcon(Icons.attach_file), findsNothing);
+    });
+
+    testWidgets('testAttachmentButtonInvokesCallback', (tester) async {
+      var picks = 0;
+      await pumpComposer(tester, enabled: true, onSend: (_) {}, onPickAttachment: () => picks++);
+
+      await tester.tap(find.byIcon(Icons.attach_file));
+      await tester.pump();
+
+      expect(picks, 1);
+    });
+
+    testWidgets('testAttachmentDisabledWhenGateClosed', (tester) async {
+      var picks = 0;
+      // 门槛不满足（selection 非空/活跃发送/picking）：按钮置灰，点击无效
+      await pumpComposer(
+        tester,
+        enabled: true,
+        onSend: (_) {},
+        onPickAttachment: () => picks++,
+        attachmentEnabled: false,
+      );
+
+      expect(tester.widget<IconButton>(find.byType(IconButton).first).onPressed, isNull);
+      await tester.tap(find.byIcon(Icons.attach_file));
+      await tester.pump();
+      expect(picks, 0);
+    });
+
+    testWidgets('testAttachmentDisabledWhenOffline', (tester) async {
+      var picks = 0;
+      // 离线（enabled=false）：附件按钮同样置灰，与发送按钮一致
+      await pumpComposer(tester, enabled: false, onSend: (_) {}, onPickAttachment: () => picks++);
+
+      await tester.tap(find.byIcon(Icons.attach_file));
+      await tester.pump();
+      expect(picks, 0);
     });
   });
 }

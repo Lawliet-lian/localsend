@@ -80,6 +80,9 @@ void main() {
     String draftText = '',
     ValueChanged<String>? onSendText,
     void Function(String peerKey)? onClearPeer,
+    VoidCallback? onPickAttachment,
+    bool attachmentEnabled = true,
+    bool sendingLocked = false,
   }) async {
     setWindow(tester, windowWidth);
     String? selected = initialSelection;
@@ -103,6 +106,10 @@ void main() {
             onSendText: onSendText ?? (_) {},
             // P9a-3：清空菜单回调（验证 dumb 合同：传与不传决定菜单是否渲染）
             onClearPeer: onClearPeer,
+            // P9b：附件参数透传（默认值保护既有测试：按钮不渲染）
+            onPickAttachment: onPickAttachment,
+            attachmentEnabled: attachmentEnabled,
+            sendingLocked: sendingLocked,
           ),
         ),
       ),
@@ -304,6 +311,54 @@ void main() {
       );
 
       expect(find.byIcon(Icons.more_vert), findsNothing);
+    });
+  });
+
+  group('P9b 附件参数透传', () {
+    testWidgets('传入 onPickAttachment：composer 渲染附件按钮且回调透传', (tester) async {
+      var picks = 0;
+      await pumpPanel(
+        tester,
+        windowWidth: 1000,
+        views: [view('fp:aaa', alias: 'Device A')],
+        initialSelection: 'fp:aaa',
+        onPickAttachment: () => picks++,
+      );
+
+      await tester.tap(find.byIcon(Icons.attach_file));
+      await tester.pump();
+      expect(picks, 1);
+    });
+
+    testWidgets('未传 onPickAttachment：附件按钮不渲染（既有纯文字行为不变）', (tester) async {
+      await pumpPanel(
+        tester,
+        windowWidth: 1000,
+        views: [view('fp:aaa', alias: 'Device A')],
+        initialSelection: 'fp:aaa',
+      );
+
+      expect(find.byIcon(Icons.attach_file), findsNothing);
+      // 发送按钮仍在（P6c 行为不受影响）
+      expect(find.byIcon(Icons.send), findsOneWidget);
+    });
+
+    testWidgets('sendingLocked：发送与附件按钮都禁用，草稿保留（选择器期间锁发送）', (tester) async {
+      await pumpPanel(
+        tester,
+        windowWidth: 1000,
+        views: [view('fp:aaa', alias: 'Device A')],
+        initialSelection: 'fp:aaa',
+        draftText: 'kept draft',
+        onPickAttachment: () {},
+        sendingLocked: true,
+      );
+
+      // 两个按钮 onPressed 都为 null（附件 + 发送）
+      final buttons = tester.widgetList<IconButton>(find.byType(IconButton)).toList();
+      expect(buttons.every((b) => b.onPressed == null), isTrue);
+      // 草稿不丢：输入框仍展示原文（锁只针对提交动作，不清空内容）
+      expect(find.text('kept draft'), findsOneWidget);
     });
   });
 }

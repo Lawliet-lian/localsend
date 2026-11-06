@@ -9,6 +9,12 @@ import 'package:localsend_app/gen/strings.g.dart';
 /// - 防重复发送锁只针对"正在提交的一次动作"：提交即上锁并清空输入框，
 ///   直到用户重新输入非空文本才解锁——双击只会发出第一条（不把 session 时长当阻塞）；
 /// - [enabled] 为 false（离线设备）时禁止发送，输入框仍可编辑保留草稿。
+///
+/// P9b 附件「即选即发」：[onPickAttachment] 非 null 时渲染附件按钮（ dumb 合同：
+/// 是否支持由接线层决定，null 则按钮不出现，保护既有纯文字调用点）；
+/// [attachmentEnabled] 为 false（门槛不满足：全局 selection 非空/有活跃发送/
+/// 选择器打开中）时按钮置灰。选择器弹层内的平台选项过滤由接线层复用
+/// FilePickerOption.getOptionsForPlatform 完成，本组件不感知平台能力。
 class ConversationComposer extends StatefulWidget {
   /// 当前设备的草稿初值。切换设备时调用方必须传不同的 ValueKey 触发重建，
   /// 避免上一设备的输入残留串到别的会话。
@@ -23,12 +29,20 @@ class ConversationComposer extends StatefulWidget {
   /// 发送回调，收到**未经修剪**的完整文本。
   final ValueChanged<String> onSend;
 
+  /// 附件选择回调（P9b）：null 时不渲染附件按钮（接线层未接入/设备离线）。
+  final VoidCallback? onPickAttachment;
+
+  /// 附件按钮是否可用（P9b 门槛投影）：仅影响按钮置灰，不影响文字输入。
+  final bool attachmentEnabled;
+
   const ConversationComposer({
     super.key,
     required this.initialValue,
     required this.enabled,
     required this.onChanged,
     required this.onSend,
+    this.onPickAttachment,
+    this.attachmentEnabled = true,
   });
 
   @override
@@ -74,6 +88,14 @@ class _ConversationComposerState extends State<ConversationComposer> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              // 附件按钮（P9b）：接线层未传入回调时不渲染（不支持的入口不出现）；
+              // 门槛不满足或离线时置灰。tooltip 复用既有 t.general.add，不新增文案。
+              if (widget.onPickAttachment != null)
+                IconButton(
+                  icon: const Icon(Icons.attach_file),
+                  tooltip: t.general.add,
+                  onPressed: widget.enabled && widget.attachmentEnabled ? widget.onPickAttachment : null,
+                ),
               Expanded(
                 child: TextField(
                   controller: _controller,

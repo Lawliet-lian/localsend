@@ -366,7 +366,7 @@ fvm flutter test
 - [x] P7c 接收操作。（见下方交接记录）
 - [x] P8 有界持久化与隐私。（见下方交接记录）
 - [x] P9a 用户开关与清除。（拆 3 子批：P9a-1 会话内文字接收确认缺口、P9a-2 接收展示开关 + 历史隐私控制 + 清空全部、P9a-3 按设备清除均已完成，见下方交接记录）
-- [ ] P9b 附件发送。
+- [x] P9b 附件发送。（拆 2 子批：P9b-1 选择协调 provider、P9b-2 composer/panel/tab 接线均已完成，见下方交接记录）
 - [ ] P10 文案与代码生成。
 - [ ] P11 全量回归及四端验收。
 
@@ -557,6 +557,17 @@ fvm flutter test
 | 命令与结果 | 本批两测试文件 `fvm flutter test`：22/22（panel 14 + tab 8，新增 4 用例均首跑通过）。全量 `fvm flutter test`：**230/230**（226 基线 + 4 新增）。`fvm flutter analyze`：No issues found。`fvm dart format`（本批 2 文件）：0 changed。 |
 | 已知问题 | 1) 菜单确认后的真实落盘依赖 isolate/Rust 环境，widget 测试用 MockPersistenceService 验证到 dispatch 为止（沿用既有测试契约）。2) 顶栏菜单目前仅一个条目，后续批次（如打开文件位置）再扩展。3) 勘误：本批执行前曾存在一个文档未规划的计划外加项「会话列表搜索过滤（自标 P9b-2）」，经用户确认属于无合同功能，已于 2026-11-06 全部移除（含 `filteredConversationPeerViewsProvider`、`searchQuery`/`setSearchQuery`、面板搜索框、`searchHint` 文案及相关接线），代码库功能集回到本文档定义；若将来需要搜索，应先在第 8 节补充批次合同再实施。 |
 | 下一批入口 | P9b 附件发送（方案 6.3 全部约束）：只读 `app/lib/util/native/file_picker.dart`（PickFileAction/FilePickerOption 平台支持能力）、`app/lib/provider/selection/selected_sending_files_provider.dart`（全局 selection 与缓存清理时机，不可用 ClearSelectionAction 暂存）、`conversation_composer.dart`（附件按钮插入位置）。门槛：仅全局 selection 为空且无活跃发送时允许选择；选择器期间锁发送与切设备；发送前不可变快照；不支持的平台按钮不出现。 |
+
+### P9b 交接记录（2026-11-06）
+
+| 字段 | 内容 |
+| --- | --- |
+| 批次/日期 | P9b / 2026-11-06（拆 2 子批：P9b-1 选择协调 provider + 单测；P9b-2 composer 附件按钮 + panel 透传 + tab 接线 + widget 测试） |
+| 实际变更文件 | 新增业务：`app/lib/provider/conversation_attachment_provider.dart`（`ConversationAttachmentState{picking}` + `conversationAttachmentProvider` + 门槛投影 `conversationAttachmentEnabledProvider` + `pickAndSend` 编排：门槛双保险→picking 锁→复用 `AddFileDialog.open`（内部 dispatch 既有 `PickFileAction`，平台选项由 `FilePickerOption.getOptionsForPlatform` 过滤）→`List.unmodifiable` 不可变快照→空选择直接返回→`unawaited(startSession(background:true, presentation:conversation))`；picker 异常吞掉记日志防 unawaited 未处理异常；finally 释放锁）。修改业务：`conversation_composer.dart`（可选 `onPickAttachment`/`attachmentEnabled`，null 不渲染按钮，tooltip 复用 `t.general.add`）、`conversation_panel.dart`（透传三参 `onPickAttachment`/`attachmentEnabled`/`sendingLocked`，composer enabled = online && !sendingLocked）、`conversation_tab.dart`（watch 门槛投影与 picking；onSelect 在 picking 期间拦截；离线 device=null 不传附件回调；_sendText 增 picking 双保险）。新增测试：`test/unit/provider/conversation_attachment_provider_test.dart`（10 用例）；`conversation_composer_test.dart` +4、`conversation_panel_test.dart` +3、`conversation_tab_test.dart` +5。**零新增 i18n**（全部复用既有 key，未跑 slang）；无新模型（未跑 build_runner）；未动 Rust/协议/isolate/file_picker/原生 picker/旧 SendTab。 |
+| 已验证行为 | 门槛（方案 6.3）：①全局 selection 非空或有活跃发送（保守判定：sendProvider 任何未 closeSession 的 session）时选择器不打开、按钮置灰；②取消（picker 无写入）不产生空传输、不动 selection/缓存；③发送前不可变快照：提交后继续 AddFiles 不影响原任务列表（unmodifiable 断言）；④picking 期间重入 pickAndSend 直接返回、接线层忽略切设备（含窄屏返回）与文字发送，锁释放后恢复；⑤picker 异常释放锁不卡死 UI；⑥本批绝不 dispatch ClearSelectionAction：selection 保留，清理沿用 closeSession 的 finished && sendMode.single 既有时机（multiple 模式 selection 保留→门槛阻止下次附件，用户可在旧 SendTab 手动清）；⑦dumb 合同：composer/panel 未传回调时按钮不渲染（保护既有测试），离线设备不渲染附件按钮；⑧平台不支持的选项不出现（getOptionsForPlatform 既有过滤，弹层内生效）。 |
+| 命令与结果 | 本批 4 测试文件 `fvm flutter test`：52/52（attachment 10 + composer 12 + panel 17 + tab 13，新增 22 用例）。全量 `fvm flutter test`：**252/252**（230 基线 + 22 新增）。`fvm flutter analyze`：No issues found。`fvm dart format`（本批 8 文件）：3 changed（150 列回流，已复验）。修复过程：①Refena 普通 Notifier 无 setState（仅 AsyncNotifier 有），fake notifier 子类内赋值 state 注入活跃 session；②Notifier state 变更通知异步调度，投影断言前需 pump flush；③挂载前 seed state 会被 init() 空 map 覆盖，改为 pumpTab 后注入；④移除多余 foundation import（material 已导出 visibleForTesting）。 |
+| 已知问题 | 1) 真实 picker 弹层与原生选择依赖平台通道，单测用注入 pick 回调模拟其副作用（向真实 selectedSendingFilesProvider 写入），widget 测试用 recording service 验证到 pickAndSend 转发为止；真实互传属 P11 四端冒烟（Android 附件选择取消在 9.3 清单）。2) AddFileDialog/_pickFiles 的 popUntilRoot 只关闭弹层：会话详情是内联渲染非路由，不会被收起（已核实）；若将来详情改为 push 路由需重新评估。3) multiple 发送模式下附件提交后 selection 保留（既有 closeSession 不清），门槛会阻止下一次附件选择直到用户手动清空——这是“沿用既有安全清理时机”的有意结果，非缺陷。4) 附件发送失败/取消后 selection 同样保留（closeSession 非 finished 不清），用户可在旧 SendTab 查看/清空；会话气泡终态由 P6b 记录器展示。 |
+| 下一批入口 | P10 文案与代码生成：盘点 P0–P9b 全部新增文案是否已三语齐备（本批零新增 i18n，重点核对既有 conversation 段 en/zh-CN/zh-HK/zh-TW 与其他 locale 的 _missing_translations），跑 `fvm dart run slang` 与 i18n 测试（`test/unit/i18n_test.dart`）；生成文件按仓库规则处理噪声。 |
 
 ## 12. 停止与撤回策略
 

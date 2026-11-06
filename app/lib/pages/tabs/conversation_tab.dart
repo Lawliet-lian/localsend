@@ -8,6 +8,7 @@ import 'package:localsend_app/model/conversation/conversation_models.dart';
 import 'package:localsend_app/model/conversation/conversation_receive_card_vm.dart';
 import 'package:localsend_app/model/conversation/transfer_presentation.dart';
 import 'package:localsend_app/model/cross_file.dart';
+import 'package:localsend_app/provider/conversation_attachment_provider.dart';
 import 'package:localsend_app/provider/conversation_provider.dart';
 import 'package:localsend_app/provider/conversation_ui_provider.dart';
 import 'package:localsend_app/provider/conversation_view_provider.dart';
@@ -66,6 +67,12 @@ class ConversationTab extends StatelessWidget {
     final entries = context.watch(conversationProvider.select((state) => state.entries));
     final ui = context.watch(conversationUiProvider);
 
+    // P9b 附件门槛投影：全局 selection 为空 + 无活跃发送 + 未 picking 才可用；
+    // picking 标志单独 watch，用于选择器期间锁发送与切设备（方案 6.3）
+    final attachmentEnabled = context.watch(conversationAttachmentEnabledProvider);
+    final picking = context.watch(conversationAttachmentProvider.select((s) => s.picking));
+    final selectedDevice = views.firstWhereOrNull((v) => v.peerKey == ui.selectedPeerKey)?.device;
+
     // P7c 接收卡片：投影层已按 eligibility 判定；卡片内部自行订阅进度（不高频重建本 tab）
     final cardVm = context.watch(conversationReceiveCardProvider);
     // 卡片只属于对端设备：未选中/选中别人时不展示（列表角标 hasActiveReceive 负责提醒）
@@ -81,6 +88,11 @@ class ConversationTab extends StatelessWidget {
       selectedPeerKey: ui.selectedPeerKey,
       showDetailOnNarrow: ui.showDetailOnMobile,
       onSelect: (peerKey) {
+        // P9b：选择器打开期间锁住设备切换（含窄屏返回列表），
+        // 保证附件快照一定发给打开选择器时选中的设备
+        if (picking) {
+          return;
+        }
         if (peerKey == null) {
           // 窄屏返回列表：只收起详情，保留选中高亮与草稿（conversationUiProvider 语义）
           ref.notifier(conversationUiProvider).backToList();
@@ -97,6 +109,13 @@ class ConversationTab extends StatelessWidget {
         }
       },
       onSendText: (text) => _sendText(ref, views, ui.selectedPeerKey, text),
+      // P9b：附件即选即发——设备离线（device 为 null）时不传回调，按钮不出现；
+      // 门槛/锁/快照/发送编排全部在协调 provider，本层只转发
+      onPickAttachment: selectedDevice == null
+          ? null
+          : () => unawaited(ref.notifier(conversationAttachmentProvider).pickAndSend(context, target: selectedDevice)),
+      attachmentEnabled: attachmentEnabled,
+      sendingLocked: picking,
       // P7c：卡片与按钮回调全部转发 serverProvider 原有动作；重复点击安全：
       // acceptFileRequest/declineFileRequest 内部已有 status != waiting 的 guard（门槛）
       receiveCard: showCardForSelected ? cardVm : null,
@@ -112,6 +131,10 @@ class ConversationTab extends StatelessWidget {
   /// 发起一次会话内纯文字发送（P6c）：全程不离开会话容器。
   /// 文字原样编码：不 trim、不丢失换行（方案 6.2）。
   void _sendText(Ref ref, List<ConversationPeerView> views, String? peerKey, String text) {
+    // P9b 双保险：选择器打开期间禁止文字发送（composer 已禁用，此处防竞态）
+    if (ref.read(conversationAttachmentProvider).picking) {
+      return;
+    }
     final view = views.firstWhereOrNull((v) => v.peerKey == peerKey);
     final device = view?.device;
     // 无选中设备或设备不在线：绝不发送（输入栏已禁用，此处是接线层双保险）

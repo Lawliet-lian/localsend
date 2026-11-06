@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,14 +8,17 @@ import 'package:localsend_app/model/conversation/conversation_models.dart';
 import 'package:localsend_app/model/conversation/conversation_receive_card_vm.dart';
 import 'package:localsend_app/model/conversation/transfer_presentation.dart';
 import 'package:localsend_app/model/cross_file.dart';
+import 'package:localsend_app/model/state/send/send_session_state.dart';
 import 'package:localsend_app/model/state/server/receive_session_state.dart';
 import 'package:localsend_app/model/state/server/receiving_file.dart';
 import 'package:localsend_app/pages/tabs/conversation_tab.dart';
+import 'package:localsend_app/provider/conversation_attachment_provider.dart';
 import 'package:localsend_app/provider/conversation_provider.dart';
 import 'package:localsend_app/provider/conversation_ui_provider.dart';
 import 'package:localsend_app/provider/conversation_view_provider.dart';
 import 'package:localsend_app/provider/network/send_provider.dart';
 import 'package:localsend_app/provider/persistence_provider.dart';
+import 'package:localsend_app/provider/selection/selected_sending_files_provider.dart';
 import 'package:localsend_app/widget/conversation/conversation_receive_card.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/model/dto/file_dto.dart';
@@ -38,6 +42,37 @@ import '../mocks.mocks.dart';
 class _RecordingSendNotifier extends SendNotifier {
   final calls = <({Device target, List<CrossFile> files, bool background, TransferPresentation presentation})>[];
 
+  /// 注入一个未关闭的 session（模拟 P9b 活跃发送门槛；state 是 protected，只能子类内赋值）
+  void seedActiveSession() {
+    state = {
+      'active-1': SendSessionState(
+        sessionId: 'active-1',
+        remoteSessionId: 'remote-1',
+        background: true,
+        status: SessionStatus.sending,
+        target: Device(
+          signalingId: null,
+          ip: '10.0.0.1',
+          version: '2.1',
+          port: 53317,
+          https: true,
+          fingerprint: 'AA:BB',
+          alias: 'Real Device',
+          deviceModel: 'model',
+          deviceType: DeviceType.desktop,
+          download: false,
+          channels: const [],
+        ),
+        files: const {},
+        hashedFileCount: 0,
+        startTime: null,
+        endTime: null,
+        sendingTasks: const [],
+        errorMessage: null,
+      ),
+    };
+  }
+
   @override
   Future<void> startSession({
     required Device target,
@@ -46,6 +81,25 @@ class _RecordingSendNotifier extends SendNotifier {
     TransferPresentation presentation = TransferPresentation.legacy,
   }) async {
     calls.add((target: target, files: files, background: background, presentation: presentation));
+  }
+}
+
+/// 替换真实附件协调：只记录 pickAndSend 调用（真实实现会打开原生 picker 弹层），
+/// 并可注入 picking 状态验证选择器期间的发送/切设备锁。
+class _RecordingAttachmentService extends ConversationAttachmentService {
+  final picks = <Device>[];
+
+  void seedPicking(bool value) {
+    state = ConversationAttachmentState(picking: value);
+  }
+
+  @override
+  Future<void> pickAndSend(
+    BuildContext context, {
+    required Device target,
+    Future<void> Function()? pick,
+  }) async {
+    picks.add(target);
   }
 }
 
@@ -448,5 +502,128 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
     expect(ref.read(conversationProvider).entries.length, 1);
     expect(find.text('keep me'), findsOneWidget);
+  });
+
+  // ---- P9b 附件即选即发接线 ----
+
+  testWidgets('P9b 点附件按钮：转发 pickAndSend，目标固定为当前选中设备', (tester) async {
+    final attachment = _RecordingAttachmentService();
+    await pumpTab(
+      tester,
+      width: 1000,
+      views: [fakeView('fp:aaa', alias: 'Real Device', device: onlineDevice())],
+      onRef: (_) {},
+      overrides: [conversationAttachmentProvider.overrideWithNotifier((_) => attachment)],
+    );
+
+    await tester.tap(find.text('Real Device'));
+    await tester.pumpAndSettle();
+
+    // 门槛满足（selection 空、无活跃发送）：按钮可用，点击只转发不弹原生 picker
+    await tester.tap(find.byIcon(Icons.attach_file));
+    await tester.pump();
+
+    expect(attachment.picks.length, 1);
+    expect(attachment.picks.single.fingerprint, 'AA:BB');
+  });
+
+  testWidgets('P9b 门槛：全局 selection 非空时附件按钮禁用', (tester) async {
+    late Ref ref;
+    await pumpTab(
+      tester,
+      width: 1000,
+      views: [fakeView('fp:aaa', alias: 'Real Device', device: onlineDevice())],
+      onRef: (r) => ref = r,
+    );
+    // 旧 SendTab 已选了文件：picker 会写全局 selection，第一版不允许混用
+    ref
+        .redux(selectedSendingFilesProvider)
+        .dispatch(
+          AddBinaryAction(bytes: Uint8List.fromList([1]), fileType: FileType.other, fileName: 'old.bin'),
+        );
+
+    await tester.tap(find.text('Real Device'));
+    await tester.pumpAndSettle();
+
+    final attachButton = tester.widget<IconButton>(
+      find.ancestor(of: find.byIcon(Icons.attach_file), matching: find.byType(IconButton)),
+    );
+    expect(attachButton.onPressed, isNull);
+  });
+
+  testWidgets('P9b 门槛：有活跃发送时附件按钮禁用', (tester) async {
+    final sendNotifier = _RecordingSendNotifier();
+    await pumpTab(
+      tester,
+      width: 1000,
+      views: [fakeView('fp:aaa', alias: 'Real Device', device: onlineDevice())],
+      onRef: (_) {},
+      overrides: [sendProvider.overrideWithNotifier((_) => sendNotifier)],
+    );
+    // 必须在容器挂载后注入：挂载前赋值会被 Notifier.init() 的空 map 覆盖
+    sendNotifier.seedActiveSession();
+    await tester.pump();
+
+    await tester.tap(find.text('Real Device'));
+    await tester.pumpAndSettle();
+
+    final attachButton = tester.widget<IconButton>(
+      find.ancestor(of: find.byIcon(Icons.attach_file), matching: find.byType(IconButton)),
+    );
+    expect(attachButton.onPressed, isNull);
+  });
+
+  testWidgets('P9b picking 锁：选择器期间切设备被忽略、发送按钮禁用', (tester) async {
+    final attachment = _RecordingAttachmentService();
+    late Ref ref;
+    await pumpTab(
+      tester,
+      width: 1000,
+      views: [
+        fakeView('fp:aaa', alias: 'Real Device', device: onlineDevice()),
+        fakeView('fp:bbb', alias: 'Other Device', device: onlineDevice()),
+      ],
+      onRef: (r) => ref = r,
+      overrides: [conversationAttachmentProvider.overrideWithNotifier((_) => attachment)],
+    );
+
+    await tester.tap(find.text('Real Device'));
+    await tester.pumpAndSettle();
+
+    // 模拟选择器打开：picking=true 后接线层应锁住切设备与发送
+    attachment.seedPicking(true);
+    await tester.pump();
+
+    await tester.tap(find.text('Other Device'));
+    await tester.pump();
+    // 选中不变：快照一定发给打开选择器时的设备（方案 6.3）
+    expect(ref.read(conversationUiProvider).selectedPeerKey, 'fp:aaa');
+
+    // 发送按钮禁用（锁只针对提交动作，草稿输入框仍在）
+    final sendButton = tester.widget<IconButton>(
+      find.ancestor(of: find.byIcon(Icons.send), matching: find.byType(IconButton)),
+    );
+    expect(sendButton.onPressed, isNull);
+
+    // 选择器关闭：锁释放，切设备恢复可用
+    attachment.seedPicking(false);
+    await tester.pump();
+    await tester.tap(find.text('Other Device'));
+    await tester.pump();
+    expect(ref.read(conversationUiProvider).selectedPeerKey, 'fp:bbb');
+  });
+
+  testWidgets('P9b 离线设备：附件按钮不渲染（不支持的入口不出现）', (tester) async {
+    await pumpTab(
+      tester,
+      width: 1000,
+      views: [fakeView('fp:aaa', alias: 'Offline Device', online: false)],
+      onRef: (_) {},
+    );
+
+    await tester.tap(find.text('Offline Device'));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.attach_file), findsNothing);
   });
 }
