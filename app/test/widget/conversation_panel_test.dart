@@ -47,14 +47,20 @@ void main() {
     );
   }
 
-  ConversationEntry textEntry(String peerKey, String sessionId, String text, {ConversationDirection direction = ConversationDirection.send}) {
+  ConversationEntry textEntry(
+    String peerKey,
+    String sessionId,
+    String text, {
+    ConversationDirection direction = ConversationDirection.send,
+    ConversationOutcome outcome = ConversationOutcome.finished,
+  }) {
     return ConversationEntry(
       entryId: ConversationEntry.buildEntryId(direction, sessionId),
       peerKey: peerKey,
       direction: direction,
       localSessionId: sessionId,
       kind: ConversationEntryKind.text,
-      outcome: ConversationOutcome.finished,
+      outcome: outcome,
       createdAt: DateTime.utc(2026, 11, 5, 10),
       finishedAt: DateTime.utc(2026, 11, 5, 10),
       files: const [],
@@ -273,6 +279,59 @@ void main() {
 
       expect(find.text('sent text'), findsOneWidget);
       expect(find.text('received text'), findsOneWidget);
+    });
+  });
+
+  // P10 文案：取消类终态按方向区分“本端取消”与“对方取消”（P7b 遗留视角修正）。
+  // 发送气泡里 canceledBySender、接收气泡里 canceledByReceiver 都是“我自己取消的”，
+  // 应展示中性的 canceledBySelf；反向（对方取消）仍用客观视角文案。
+  group('P10 取消文案视角', () {
+    testWidgets('发送方向 canceledBySender → 本端已取消', (tester) async {
+      await pumpPanel(
+        tester,
+        windowWidth: 1000,
+        views: [view('fp:aaa')],
+        entries: [textEntry('fp:aaa', 's1', 'x', direction: ConversationDirection.send, outcome: ConversationOutcome.canceledBySender)],
+        initialSelection: 'fp:aaa',
+      );
+      expect(find.text(t.conversation.outcome.canceledBySelf), findsOneWidget);
+      expect(find.text(t.conversation.outcome.canceledBySender), findsNothing);
+    });
+
+    testWidgets('接收方向 canceledByReceiver → 本端已取消', (tester) async {
+      await pumpPanel(
+        tester,
+        windowWidth: 1000,
+        views: [view('fp:aaa')],
+        entries: [textEntry('fp:aaa', 'r1', 'x', direction: ConversationDirection.receive, outcome: ConversationOutcome.canceledByReceiver)],
+        initialSelection: 'fp:aaa',
+      );
+      expect(find.text(t.conversation.outcome.canceledBySelf), findsOneWidget);
+      expect(find.text(t.conversation.outcome.canceledByReceiver), findsNothing);
+    });
+
+    testWidgets('发送方向 canceledByReceiver（对方取消）仍用客观视角', (tester) async {
+      await pumpPanel(
+        tester,
+        windowWidth: 1000,
+        views: [view('fp:aaa')],
+        entries: [textEntry('fp:aaa', 's1', 'x', direction: ConversationDirection.send, outcome: ConversationOutcome.canceledByReceiver)],
+        initialSelection: 'fp:aaa',
+      );
+      expect(find.text(t.conversation.outcome.canceledByReceiver), findsOneWidget);
+      expect(find.text(t.conversation.outcome.canceledBySelf), findsNothing);
+    });
+
+    testWidgets('接收方向 canceledBySender（对方取消）仍用客观视角', (tester) async {
+      await pumpPanel(
+        tester,
+        windowWidth: 1000,
+        views: [view('fp:aaa')],
+        entries: [textEntry('fp:aaa', 'r1', 'x', direction: ConversationDirection.receive, outcome: ConversationOutcome.canceledBySender)],
+        initialSelection: 'fp:aaa',
+      );
+      expect(find.text(t.conversation.outcome.canceledBySender), findsOneWidget);
+      expect(find.text(t.conversation.outcome.canceledBySelf), findsNothing);
     });
   });
 

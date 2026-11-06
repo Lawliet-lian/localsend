@@ -367,7 +367,7 @@ fvm flutter test
 - [x] P8 有界持久化与隐私。（见下方交接记录）
 - [x] P9a 用户开关与清除。（拆 3 子批：P9a-1 会话内文字接收确认缺口、P9a-2 接收展示开关 + 历史隐私控制 + 清空全部、P9a-3 按设备清除均已完成，见下方交接记录）
 - [x] P9b 附件发送。（拆 2 子批：P9b-1 选择协调 provider、P9b-2 composer/panel/tab 接线均已完成，见下方交接记录）
-- [ ] P10 文案与代码生成。
+- [x] P10 文案与代码生成。（见下方交接记录）
 - [ ] P11 全量回归及四端验收。
 
 每批交接追加如下信息：
@@ -568,6 +568,17 @@ fvm flutter test
 | 命令与结果 | 本批 4 测试文件 `fvm flutter test`：52/52（attachment 10 + composer 12 + panel 17 + tab 13，新增 22 用例）。全量 `fvm flutter test`：**252/252**（230 基线 + 22 新增）。`fvm flutter analyze`：No issues found。`fvm dart format`（本批 8 文件）：3 changed（150 列回流，已复验）。修复过程：①Refena 普通 Notifier 无 setState（仅 AsyncNotifier 有），fake notifier 子类内赋值 state 注入活跃 session；②Notifier state 变更通知异步调度，投影断言前需 pump flush；③挂载前 seed state 会被 init() 空 map 覆盖，改为 pumpTab 后注入；④移除多余 foundation import（material 已导出 visibleForTesting）。 |
 | 已知问题 | 1) 真实 picker 弹层与原生选择依赖平台通道，单测用注入 pick 回调模拟其副作用（向真实 selectedSendingFilesProvider 写入），widget 测试用 recording service 验证到 pickAndSend 转发为止；真实互传属 P11 四端冒烟（Android 附件选择取消在 9.3 清单）。2) AddFileDialog/_pickFiles 的 popUntilRoot 只关闭弹层：会话详情是内联渲染非路由，不会被收起（已核实）；若将来详情改为 push 路由需重新评估。3) multiple 发送模式下附件提交后 selection 保留（既有 closeSession 不清），门槛会阻止下一次附件选择直到用户手动清空——这是“沿用既有安全清理时机”的有意结果，非缺陷。4) 附件发送失败/取消后 selection 同样保留（closeSession 非 finished 不清），用户可在旧 SendTab 查看/清空；会话气泡终态由 P6b 记录器展示。 |
 | 下一批入口 | P10 文案与代码生成：盘点 P0–P9b 全部新增文案是否已三语齐备（本批零新增 i18n，重点核对既有 conversation 段 en/zh-CN/zh-HK/zh-TW 与其他 locale 的 _missing_translations），跑 `fvm dart run slang` 与 i18n 测试（`test/unit/i18n_test.dart`）；生成文件按仓库规则处理噪声。 |
+
+### P10 交接记录（2026-11-06）
+
+| 字段 | 内容 |
+| --- | --- |
+| 批次/日期 | P10 / 2026-11-06（文案盘点 + zh-HK 补齐 + P7b 取消视角修正） |
+| 实际变更文件 | i18n 源（手写）：`en.json`/`zh-CN.json`/`zh-TW.json` 各 +1 键 `conversation.outcome.canceledBySelf`；`zh-HK.json` 补齐 12 个缺失键（`conversation.clearConversation`、`clearPeerDialog.{title,content}`、`receiveCard.{title,titleMessage,filesCount,moreFiles,canceled}`、`settingsTab.receive.{conversationReceive,clearConversationHistory}`、`dialogs.conversationClearDialog.{title,content}`）+ `canceledBySelf`，用词跟随该文件既有粤语风格。业务（手写）：`conversation_entry_tile.dart` 的 `_outcomeLabel` 增 `isSend` 参数，方向与取消发起方一致时改用 `canceledBySelf`。测试：`conversation_panel_test.dart` 的 `textEntry` 增可选 `outcome` 参（默认 finished 保护既有），新增 group「P10 取消文案视角」4 用例。生成（slang 产物，未手改）：`strings.g.dart`（计数 21649→21665）、`strings_en/zh_CN/zh_HK/zh_TW.g.dart`。未动 Rust/协议/isolate/原生工程/枚举与持久化格式。 |
+| 已验证行为 | 门槛（方案 P10：本地化所有新文案，slang 与 i18n 测试通过）：①四语 conversation 段键集逐一比对一致（各 29 键），`settingsTab.receive` 两键与 `dialogs.conversationClearDialog` 两键四语齐备；②P7b 遗留视角修正：发送气泡 canceledBySender、接收气泡 canceledByReceiver 均展示中性「本端已取消」（canceledBySelf），反向（对方取消）仍用客观视角文案，4 用例双向覆盖；③仅展示层措辞变化，`ConversationOutcome` 枚举值与序列化字符串不变（旧记录兼容）；④非英文 locale 缺失键仍回退 en（fallback_strategy: base_locale），_missing_translations 未被 slang 改动（配置不生成）。 |
+| 命令与结果 | `fvm dart run slang`：成功（0.985s，仅 5 个 gen 文件变更）。本批 `fvm flutter test conversation_panel_test.dart i18n_test.dart`：20/20（panel 18 + i18n 2，含新增 4 视角用例）。全量 `fvm flutter test`：**256/256**（252 基线 + 4 新增）。`fvm flutter analyze`：No issues found。`fvm dart format --set-exit-if-changed`（手写 2 文件 + gen 5 文件）：0 changed。git diff 仅 11 个预期文件，无 mocks/assets/pubspec.lock 噪声。 |
+| 已知问题 | 1) 其余 55 个非中英语 locale 的 conversation 新键仍回退 en（上游 Weblate 管理，_missing_translations 由 slang 配置决定是否生成，本仓未启用），不属本批范围。2) 视角修正仅覆盖气泡状态行 `_outcomeLabel`；接收卡片（conversation_receive_card）的 canceledBySender 提示用的是 `receiveCard.canceled` 独立文案，本就是接收视角，无需改。3) 真实四语 UI 渲染（尤其 zh-HK 粤语措辞）属 P11 人工冒烟，本批以键集比对 + en 断言背书。 |
+| 下一批入口 | P11 全量回归及四端验收：至少 macOS↔Android 互传（文字 + 附件），核对会话收发记录、取消视角文案、接收展示开关与清空入口的真实落盘；未跑平台明确标「未验证」，不得写四端全部通过。 |
 
 ## 12. 停止与撤回策略
 

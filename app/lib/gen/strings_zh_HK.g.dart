@@ -121,6 +121,12 @@ class Translations$conversation$zh_HK extends Translations$conversation$en {
   @override
   String get send => '傳送';
   @override
+  String get clearConversation => '清空目前對話';
+  @override
+  late final Translations$conversation$clearPeerDialog$zh_HK clearPeerDialog = Translations$conversation$clearPeerDialog$zh_HK.internal(_root);
+  @override
+  late final Translations$conversation$receiveCard$zh_HK receiveCard = Translations$conversation$receiveCard$zh_HK.internal(_root);
+  @override
   late final Translations$conversation$outcome$zh_HK outcome = Translations$conversation$outcome$zh_HK.internal(_root);
 }
 
@@ -639,6 +645,10 @@ class Translations$dialogs$zh_HK extends Translations$dialogs$en {
   @override
   late final Translations$dialogs$historyClearDialog$zh_HK historyClearDialog = Translations$dialogs$historyClearDialog$zh_HK.internal(_root);
   @override
+  late final Translations$dialogs$conversationClearDialog$zh_HK conversationClearDialog = Translations$dialogs$conversationClearDialog$zh_HK.internal(
+    _root,
+  );
+  @override
   late final Translations$dialogs$localNetworkUnauthorized$zh_HK localNetworkUnauthorized =
       Translations$dialogs$localNetworkUnauthorized$zh_HK.internal(_root);
   @override
@@ -786,6 +796,38 @@ class Translations$assetPicker$zh_HK extends Translations$assetPicker$en {
   String get sUnitAssetCountLabel => '數量';
 }
 
+// Path: conversation.clearPeerDialog
+class Translations$conversation$clearPeerDialog$zh_HK extends Translations$conversation$clearPeerDialog$en {
+  Translations$conversation$clearPeerDialog$zh_HK.internal(TranslationsZhHk root) : this._root = root, super.internal(root);
+
+  final TranslationsZhHk _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '清空對話';
+  @override
+  String content({required Object name}) => '確定要清空與 ${name} 的全部對話記錄嗎？不會刪除檔案，也不會取消正在進行的傳輸。';
+}
+
+// Path: conversation.receiveCard
+class Translations$conversation$receiveCard$zh_HK extends Translations$conversation$receiveCard$en {
+  Translations$conversation$receiveCard$zh_HK.internal(TranslationsZhHk root) : this._root = root, super.internal(root);
+
+  final TranslationsZhHk _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String title({required Object name}) => '來自 ${name} 的檔案';
+  @override
+  String titleMessage({required Object name}) => '來自 ${name} 的訊息';
+  @override
+  String filesCount({required Object n}) => '${n} 個檔案';
+  @override
+  String moreFiles({required Object n}) => '+${n} 個更多';
+  @override
+  String get canceled => '傳送方已取消請求。';
+}
+
 // Path: conversation.outcome
 class Translations$conversation$outcome$zh_HK extends Translations$conversation$outcome$en {
   Translations$conversation$outcome$zh_HK.internal(TranslationsZhHk root) : this._root = root, super.internal(root);
@@ -813,6 +855,8 @@ class Translations$conversation$outcome$zh_HK extends Translations$conversation$
   String get canceledBySender => '傳送端已取消';
   @override
   String get canceledByReceiver => '接收端已取消';
+  @override
+  String get canceledBySelf => '本端已取消';
   @override
   String get failed => '失敗';
   @override
@@ -967,6 +1011,10 @@ class Translations$settingsTab$receive$zh_HK extends Translations$settingsTab$re
   String get saveToHistory => 'Save 去歷史紀錄';
   @override
   String get verifyChecksums => '接收檔案嗰陣驗證 checksum';
+  @override
+  String get conversationReceive => '喺聊天介面顯示收到嘅訊息同檔案';
+  @override
+  String get clearConversationHistory => '清空全部對話記錄';
 }
 
 // Path: settingsTab.send
@@ -1378,6 +1426,19 @@ class Translations$dialogs$historyClearDialog$zh_HK extends Translations$dialogs
   String get title => '清除歷史記錄';
   @override
   String get content => '你係咪真係要剷走全部歷史記錄？';
+}
+
+// Path: dialogs.conversationClearDialog
+class Translations$dialogs$conversationClearDialog$zh_HK extends Translations$dialogs$conversationClearDialog$en {
+  Translations$dialogs$conversationClearDialog$zh_HK.internal(TranslationsZhHk root) : this._root = root, super.internal(root);
+
+  final TranslationsZhHk _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '清空對話';
+  @override
+  String get content => '你係咪真係要剷走全部對話記錄？唔會刪除檔案，亦唔會取消進行中嘅傳輸。';
 }
 
 // Path: dialogs.localNetworkUnauthorized

@@ -1069,6 +1069,9 @@ class Translations$conversation$outcome$en {
   /// en: 'Canceled by receiver'
   String get canceledByReceiver => 'Canceled by receiver';
 
+  /// en: 'You canceled'
+  String get canceledBySelf => 'You canceled';
+
   /// en: 'Failed'
   String get failed => 'Failed';
 

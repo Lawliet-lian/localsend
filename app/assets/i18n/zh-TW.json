@@ -32,6 +32,7 @@
       "tooManyAttempts": "PIN 嘗試次數過多",
       "canceledBySender": "傳送端已取消",
       "canceledByReceiver": "接收端已取消",
+      "canceledBySelf": "本端已取消",
       "failed": "失敗",
       "incomplete": "上次傳輸未完成"
     }

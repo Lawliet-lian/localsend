@@ -32,6 +32,7 @@
       "tooManyAttempts": "Too many attempts",
       "canceledBySender": "Canceled by sender",
       "canceledByReceiver": "Canceled by receiver",
+      "canceledBySelf": "You canceled",
       "failed": "Failed",
       "incomplete": "Last transfer did not complete"
     }

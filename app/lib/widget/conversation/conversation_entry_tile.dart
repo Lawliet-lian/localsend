@@ -42,7 +42,7 @@ class _ConversationEntryTileState extends State<ConversationEntryTile> {
           Icon(_outcomeIcon(entry.outcome), size: 14, color: _outcomeColor(theme, entry.outcome)),
           const SizedBox(width: 4),
           Text(
-            _outcomeLabel(entry.outcome),
+            _outcomeLabel(entry.outcome, isSend: isSend),
             style: theme.textTheme.labelSmall?.copyWith(color: textColor.withValues(alpha: 0.7)),
           ),
           const SizedBox(width: 8),
@@ -154,7 +154,16 @@ class _ConversationEntryTileState extends State<ConversationEntryTile> {
 }
 
 /// outcome → 展示文案（slang，全部经 t.，方案第 10 节）。
-String _outcomeLabel(ConversationOutcome outcome) {
+///
+/// P10 视角修正：取消类终态需区分“本端取消”与“对方取消”。
+/// 发送气泡里 canceledBySender、接收气泡里 canceledByReceiver 都是“我自己取消的”，
+/// 改用中性的 canceledBySelf（“本端已取消”），避免把自身动作描述成对方行为（P7b 遗留）。
+/// 其余情况仍按发送方/接收方的客观视角展示。
+String _outcomeLabel(ConversationOutcome outcome, {required bool isSend}) {
+  // 本端主动取消：方向与取消发起方一致时用第一人称中性文案
+  if ((isSend && outcome == ConversationOutcome.canceledBySender) || (!isSend && outcome == ConversationOutcome.canceledByReceiver)) {
+    return t.conversation.outcome.canceledBySelf;
+  }
   return switch (outcome) {
     ConversationOutcome.preparing => t.conversation.outcome.preparing,
     ConversationOutcome.waiting => t.conversation.outcome.waiting,

@@ -9,6 +9,18 @@
     "collapse": "收起",
     "composeHint": "輸入訊息…",
     "send": "傳送",
+    "clearConversation": "清空目前對話",
+    "clearPeerDialog": {
+      "title": "清空對話",
+      "content": "確定要清空與 {name} 的全部對話記錄嗎？不會刪除檔案，也不會取消正在進行的傳輸。"
+    },
+    "receiveCard": {
+      "title": "來自 {name} 的檔案",
+      "titleMessage": "來自 {name} 的訊息",
+      "filesCount": "{n} 個檔案",
+      "moreFiles": "+{n} 個更多",
+      "canceled": "傳送方已取消請求。"
+    },
     "outcome": {
       "preparing": "準備中…",
       "waiting": "等待對方回應…",
@@ -20,6 +32,7 @@
       "tooManyAttempts": "PIN 嘗試次數過多",
       "canceledBySender": "傳送端已取消",
       "canceledByReceiver": "接收端已取消",
+      "canceledBySelf": "本端已取消",
       "failed": "失敗",
       "incomplete": "上次傳輸未完成"
     }
@@ -146,7 +159,9 @@
       "downloads": "（下載資料夾）",
       "saveToGallery": "Save 落相簿",
       "saveToHistory": "Save 去歷史紀錄",
-      "verifyChecksums": "接收檔案嗰陣驗證 checksum"
+      "verifyChecksums": "接收檔案嗰陣驗證 checksum",
+      "conversationReceive": "喺聊天介面顯示收到嘅訊息同檔案",
+      "clearConversationHistory": "清空全部對話記錄"
     },
     "send": {
       "title": "傳送",
@@ -422,6 +437,10 @@
     "historyClearDialog": {
       "title": "清除歷史記錄",
       "content": "你係咪真係要剷走全部歷史記錄？"
+    },
+    "conversationClearDialog": {
+      "title": "清空對話",
+      "content": "你係咪真係要剷走全部對話記錄？唔會刪除檔案，亦唔會取消進行中嘅傳輸。"
     },
     "localNetworkUnauthorized": {
       "title": "@:dialogs.noPermission.title",

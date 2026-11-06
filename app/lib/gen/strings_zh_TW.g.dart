@@ -856,6 +856,8 @@ class Translations$conversation$outcome$zh_TW extends Translations$conversation$
   @override
   String get canceledByReceiver => '接收端已取消';
   @override
+  String get canceledBySelf => '本端已取消';
+  @override
   String get failed => '失敗';
   @override
   String get incomplete => '上次傳輸未完成';
