@@ -139,7 +139,7 @@ final sendTabVmProvider = ViewProvider((ref) {
 
       await ref.notifier(settingsProvider).setSendMode(mode);
       if (mode != SendMode.multiple) {
-        ref.notifier(sendProvider).clearAllSessions();
+        ref.notifier(sendProvider).clearLegacySessions();
       }
     },
     onTapDevice: (context, device) async {
@@ -166,7 +166,7 @@ final sendTabVmProvider = ViewProvider((ref) {
           );
     },
     onTapDeviceMultiSend: (context, device) async {
-      final session = ref.read(sendProvider).values.firstWhereOrNull((s) => s.target.ip == device.ip);
+      final session = ref.read(legacySendSessionsProvider).firstWhereOrNull((s) => s.target.ip == device.ip);
       if (session != null) {
         if (session.status == SessionStatus.waiting) {
           ref.notifier(sendProvider).setBackground(session.sessionId, false);

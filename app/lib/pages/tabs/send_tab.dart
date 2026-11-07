@@ -529,7 +529,7 @@ class _MultiSendDeviceListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ref = context.ref;
-    final session = ref.watch(sendProvider).values.firstWhereOrNull((s) => s.target.ip == device.ip);
+    final session = ref.watch(legacySendSessionsProvider).firstWhereOrNull((s) => s.target.ip == device.ip);
     final String? info;
     final double? progress;
     if (session != null) {

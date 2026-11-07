@@ -19,6 +19,7 @@ import 'package:localsend_app/provider/conversation_view_provider.dart';
 import 'package:localsend_app/provider/network/send_provider.dart';
 import 'package:localsend_app/provider/persistence_provider.dart';
 import 'package:localsend_app/provider/selection/selected_sending_files_provider.dart';
+import 'package:localsend_app/util/native/conversation_attachment_cache.dart';
 import 'package:localsend_app/widget/conversation/conversation_receive_card.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/model/dto/file_dto.dart';
@@ -79,6 +80,7 @@ class _RecordingSendNotifier extends SendNotifier {
     required List<CrossFile> files,
     required bool background,
     TransferPresentation presentation = TransferPresentation.legacy,
+    ConversationAttachmentCache? attachmentCache,
   }) async {
     calls.add((target: target, files: files, background: background, presentation: presentation));
   }
@@ -97,7 +99,6 @@ class _RecordingAttachmentService extends ConversationAttachmentService {
   Future<void> pickAndSend(
     BuildContext context, {
     required Device target,
-    Future<void> Function()? pick,
   }) async {
     picks.add(target);
   }
@@ -527,7 +528,7 @@ void main() {
     expect(attachment.picks.single.fingerprint, 'AA:BB');
   });
 
-  testWidgets('P9b 门槛：全局 selection 非空时附件按钮禁用', (tester) async {
+  testWidgets('C1 旧发送页有选件时会话仍可选附件', (tester) async {
     late Ref ref;
     await pumpTab(
       tester,
@@ -535,7 +536,6 @@ void main() {
       views: [fakeView('fp:aaa', alias: 'Real Device', device: onlineDevice())],
       onRef: (r) => ref = r,
     );
-    // 旧 SendTab 已选了文件：picker 会写全局 selection，第一版不允许混用
     ref
         .redux(selectedSendingFilesProvider)
         .dispatch(
@@ -548,10 +548,10 @@ void main() {
     final attachButton = tester.widget<IconButton>(
       find.ancestor(of: find.byIcon(Icons.attach_file), matching: find.byType(IconButton)),
     );
-    expect(attachButton.onPressed, isNull);
+    expect(attachButton.onPressed, isNotNull);
   });
 
-  testWidgets('P9b 门槛：有活跃发送时附件按钮禁用', (tester) async {
+  testWidgets('C1 已有发送任务时会话仍可选附件', (tester) async {
     final sendNotifier = _RecordingSendNotifier();
     await pumpTab(
       tester,
@@ -570,7 +570,7 @@ void main() {
     final attachButton = tester.widget<IconButton>(
       find.ancestor(of: find.byIcon(Icons.attach_file), matching: find.byType(IconButton)),
     );
-    expect(attachButton.onPressed, isNull);
+    expect(attachButton.onPressed, isNotNull);
   });
 
   testWidgets('P9b picking 锁：选择器期间切设备被忽略、发送按钮禁用', (tester) async {

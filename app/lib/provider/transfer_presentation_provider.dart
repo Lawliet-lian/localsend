@@ -8,7 +8,7 @@ import 'package:refena_flutter/refena_flutter.dart';
 /// - 只存在于 Dart 应用层内存：不进 isolate、不进协议、不持久化；
 /// - [TransferPresentation.legacy] 是默认值，因此**只为非 legacy 的 session 记录条目**，
 ///   legacy 会话不占存储；
-/// - session 清理（closeSession / clearAllSessions）时必须同步移除，防止映射泄漏。
+/// - session 清理时必须同步移除，防止映射泄漏。
 final transferPresentationProvider = NotifierProvider<TransferPresentationNotifier, Map<String, TransferPresentation>>((ref) {
   return TransferPresentationNotifier();
 });
@@ -45,7 +45,7 @@ class TransferPresentationNotifier extends Notifier<Map<String, TransferPresenta
     }
   }
 
-  /// 清空全部映射（对应 clearAllSessions）。
+  /// 清空全部映射。
   void clearAll() {
     state = {};
   }

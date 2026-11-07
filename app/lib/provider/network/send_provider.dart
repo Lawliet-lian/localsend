@@ -18,6 +18,7 @@ import 'package:localsend_app/provider/network/conversation_send_recorder.dart';
 import 'package:localsend_app/provider/selection/selected_sending_files_provider.dart';
 import 'package:localsend_app/provider/settings_provider.dart';
 import 'package:localsend_app/provider/transfer_presentation_provider.dart';
+import 'package:localsend_app/util/native/conversation_attachment_cache.dart';
 import 'package:localsend_app/widget/dialogs/pin_dialog.dart';
 import 'package:localsend_isolates/isolate.dart';
 import 'package:localsend_isolates/model/device.dart';
@@ -50,6 +51,12 @@ final sendProvider = NotifierProvider<SendNotifier, Map<String, SendSessionState
   return SendNotifier();
 });
 
+final legacySendSessionsProvider = ViewProvider((ref) {
+  final sessions = ref.watch(sendProvider);
+  final presentations = ref.watch(transferPresentationProvider);
+  return sessions.values.where((session) => presentations[session.sessionId] != TransferPresentation.conversation);
+});
+
 class SendNotifier extends Notifier<Map<String, SendSessionState>> {
   SendNotifier();
 
@@ -62,6 +69,7 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
   /// is no longer waiting for a decision.
   /// Session ID -> Cancel token
   final _prepareUploadCancelTokens = <String, rust_cancel.RsCancellationToken>{};
+  final _attachmentCaches = <String, ConversationAttachmentCache>{};
 
   /// 会话模式（presentation == conversation）session 的发送记录器（P6b）：
   /// legacy session 的所有调用都是空操作，旧发送路径不产生任何会话记录。
@@ -101,11 +109,45 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
     required List<CrossFile> files,
     required bool background,
     TransferPresentation presentation = TransferPresentation.legacy,
+    ConversationAttachmentCache? attachmentCache,
+  }) async {
+    final sessionId = _uuid.v4();
+    Future<void> start() => _startSession(sessionId: sessionId, target: target, files: files, background: background, presentation: presentation);
+    if (attachmentCache == null) {
+      await start();
+      return;
+    }
+
+    _attachmentCaches[sessionId] = attachmentCache;
+    await attachmentCache.use(() async {
+      var keepForRetry = false;
+      try {
+        await start();
+        final session = state[sessionId];
+        // Before acceptance there are no upload tokens to retry. After acceptance,
+        // keep the copies for failed files or a retry that has already started.
+        keepForRetry =
+            session != null &&
+            session.remoteSessionId != null &&
+            (session.status == SessionStatus.finishedWithErrors || session.status == SessionStatus.sending);
+      } finally {
+        if (!keepForRetry) {
+          _attachmentCaches.remove(sessionId)?.close();
+        }
+      }
+    });
+  }
+
+  Future<void> _startSession({
+    required String sessionId,
+    required Device target,
+    required List<CrossFile> files,
+    required bool background,
+    required TransferPresentation presentation,
   }) async {
     // Pinned to the device the user picked, so the request is not sent at all
     // if someone else answers on that address.
     final client = ref.read(httpProvider).pinnedTo(target.fingerprint);
-    final sessionId = _uuid.v4();
 
     if (presentation == TransferPresentation.conversation) {
       // 会话模式绝不跳转旧页面：复用 background 流程（不开 SendPage/ProgressPage，
@@ -635,10 +677,12 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
       );
     }
 
-    await _sendFiles(
-      sessionId: sessionId,
-      files: [file],
-    );
+    final cache = _attachmentCaches[sessionId];
+    if (cache == null) {
+      await _sendFiles(sessionId: sessionId, files: [file]);
+    } else {
+      await cache.use(() => _sendFiles(sessionId: sessionId, files: [file]));
+    }
 
     if (isRetry) {
       if (state[sessionId] != null && ref.read(fileTransferProvider).getStatuses(sessionId).isFinishedOrError) {
@@ -814,6 +858,7 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
     _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.canceledByReceiver, error: sessionState.errorMessage);
     TransferNotification.stop(sessionId);
     _cancelRunningRequests(sessionState);
+    _attachmentCaches.remove(sessionId)?.close();
 
     state = state.updateSession(
       sessionId: sessionId,
@@ -849,29 +894,28 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
     _hashCancelTokens.remove(sessionId)?.cancel();
     _prepareUploadCancelTokens.remove(sessionId)?.cancel();
     // 方案 5.3：session 清理时同步移除展示模式映射，防止泄漏
-    ref.notifier(transferPresentationProvider).remove(sessionId);
+    final presentations = ref.notifier(transferPresentationProvider);
+    final usesLegacySelection = presentations.get(sessionId) == TransferPresentation.legacy;
+    presentations.remove(sessionId);
+    _attachmentCaches.remove(sessionId)?.close();
     state = state.removeSession(ref, sessionId);
-    if (sessionState.status == SessionStatus.finished && ref.read(settingsProvider).sendMode == SendMode.single) {
+    if (usesLegacySelection && sessionState.status == SessionStatus.finished && ref.read(settingsProvider).sendMode == SendMode.single) {
       // clear selected files
       ref.redux(selectedSendingFilesProvider).dispatch(ClearSelectionAction());
     }
   }
 
-  void clearAllSessions() {
-    for (final sessionId in state.keys) {
+  void clearLegacySessions() {
+    final presentations = ref.notifier(transferPresentationProvider);
+    final legacyIds = state.keys.where((id) => presentations.get(id) == TransferPresentation.legacy).toList();
+    var remaining = state;
+    for (final sessionId in legacyIds) {
       TransferNotification.stop(sessionId);
+      _hashCancelTokens.remove(sessionId)?.cancel();
+      _prepareUploadCancelTokens.remove(sessionId)?.cancel();
+      remaining = remaining.removeSession(ref, sessionId);
     }
-    for (final cancelToken in _hashCancelTokens.values) {
-      cancelToken.cancel();
-    }
-    _hashCancelTokens.clear();
-    for (final cancelToken in _prepareUploadCancelTokens.values) {
-      cancelToken.cancel();
-    }
-    _prepareUploadCancelTokens.clear();
-    ref.notifier(transferPresentationProvider).clearAll();
-    state = {};
-    ref.notifier(fileTransferProvider).removeAllSessions();
+    state = remaining;
   }
 
   void setBackground(String sessionId, bool background) {

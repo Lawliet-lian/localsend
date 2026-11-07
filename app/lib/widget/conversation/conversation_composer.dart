@@ -12,8 +12,7 @@ import 'package:localsend_app/gen/strings.g.dart';
 ///
 /// P9b 附件「即选即发」：[onPickAttachment] 非 null 时渲染附件按钮（ dumb 合同：
 /// 是否支持由接线层决定，null 则按钮不出现，保护既有纯文字调用点）；
-/// [attachmentEnabled] 为 false（门槛不满足：全局 selection 非空/有活跃发送/
-/// 选择器打开中）时按钮置灰。选择器弹层内的平台选项过滤由接线层复用
+/// [attachmentEnabled] 为 false 时按钮置灰，例如选择器已打开。选择器弹层内的平台选项过滤由接线层复用
 /// FilePickerOption.getOptionsForPlatform 完成，本组件不感知平台能力。
 class ConversationComposer extends StatefulWidget {
   /// 当前设备的草稿初值。切换设备时调用方必须传不同的 ValueKey 触发重建，

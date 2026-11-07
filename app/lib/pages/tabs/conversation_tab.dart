@@ -67,8 +67,7 @@ class ConversationTab extends StatelessWidget {
     final entries = context.watch(conversationProvider.select((state) => state.entries));
     final ui = context.watch(conversationUiProvider);
 
-    // P9b 附件门槛投影：全局 selection 为空 + 无活跃发送 + 未 picking 才可用；
-    // picking 标志单独 watch，用于选择器期间锁发送与切设备（方案 6.3）
+    // picking 标志用于选择器打开期间锁住附件、文字发送与设备切换。
     final attachmentEnabled = context.watch(conversationAttachmentEnabledProvider);
     final picking = context.watch(conversationAttachmentProvider.select((s) => s.picking));
     final selectedDevice = views.firstWhereOrNull((v) => v.peerKey == ui.selectedPeerKey)?.device;

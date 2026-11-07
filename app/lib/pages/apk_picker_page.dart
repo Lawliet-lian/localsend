@@ -14,7 +14,9 @@ import 'package:refena_flutter/refena_flutter.dart';
 import 'package:routerino/routerino.dart';
 
 class ApkPickerPage extends StatefulWidget {
-  const ApkPickerPage({super.key});
+  final bool returnSelection;
+
+  const ApkPickerPage({super.key, this.returnSelection = false});
 
   @override
   State<ApkPickerPage> createState() => _ApkPickerPageState();
@@ -25,22 +27,14 @@ class _ApkPickerPageState extends State<ApkPickerPage> with Refena {
   final List<Application> _selectedApps = [];
 
   Future<void> _pickApp(Application app) async {
-    await ref
-        .redux(selectedSendingFilesProvider)
-        .dispatchAsync(
-          AddFilesAction(
-            files: [app],
-            converter: CrossFileConverters.convertApplication,
-          ),
-        );
-
-    if (mounted) {
-      context.pop();
-    }
+    await _pickApps([app]);
   }
 
   Future<void> _pickApps(List<Application> apps) async {
-    // ignore: discarded_futures
+    if (widget.returnSelection) {
+      context.pop(List<Application>.unmodifiable(apps));
+      return;
+    }
 
     for (Application app in apps) {
       await ref

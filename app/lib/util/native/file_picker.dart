@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:device_apps/device_apps.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -102,37 +103,55 @@ enum FilePickerOption {
 class PickFileAction extends AsyncGlobalAction {
   final FilePickerOption option;
   final BuildContext context;
+  final Ref? selectionRef;
 
   PickFileAction({
     required this.option,
     required this.context,
+    this.selectionRef,
   });
 
   @override
   Future<void> reduce() async {
+    final selection = selectionRef ?? ref;
+    final closeLegacyDialogs = selectionRef == null;
     switch (option) {
       case FilePickerOption.file:
-        await _pickFiles(context, ref);
+        await _pickFiles(context, selection, closeLegacyDialogs: closeLegacyDialogs);
         break;
       case FilePickerOption.folder:
         // ignore: use_build_context_synchronously
-        await _pickFolder(context, ref);
+        await _pickFolder(
+          context,
+          selection,
+          closeLegacyDialogs: closeLegacyDialogs,
+          androidSdk: defaultTargetPlatform == TargetPlatform.android ? ref.read(deviceInfoProvider).androidSdkInt : null,
+        );
         break;
       case FilePickerOption.media:
         // ignore: use_build_context_synchronously
-        await _pickMedia(context, ref);
+        await _pickMedia(context, selection);
         break;
       case FilePickerOption.text:
         // ignore: use_build_context_synchronously
-        await _pickText(context, ref);
+        await _pickText(context, selection);
         break;
       case FilePickerOption.clipboard:
         // ignore: use_build_context_synchronously
-        await _pickClipboard(context, ref);
+        await _pickClipboard(context, selection);
         break;
       case FilePickerOption.app:
         // ignore: use_build_context_synchronously
-        await _pickApp(context);
+        if (closeLegacyDialogs) {
+          await _pickApp(context);
+        } else {
+          final apps = await context.push<List<Application>, ApkPickerPage>(() => const ApkPickerPage(returnSelection: true));
+          if (apps != null) {
+            await selection
+                .redux(selectedSendingFilesProvider)
+                .dispatchAsync(AddFilesAction(files: apps, converter: CrossFileConverters.convertApplication));
+          }
+        }
         break;
     }
   }
@@ -143,15 +162,16 @@ class PickFileAction extends AsyncGlobalAction {
   }
 }
 
-Future<void> _pickFiles(BuildContext context, Ref ref) async {
+Future<void> _pickFiles(BuildContext context, Ref ref, {required bool closeLegacyDialogs}) async {
+  final navigator = Navigator.of(context, rootNavigator: true);
+  DialogRoute<void>? loading;
   if (checkPlatform([TargetPlatform.android])) {
-    // On android, the files are copied to the cache which takes some time.
-    // ignore: unawaited_futures
-    showDialog(
+    loading = DialogRoute<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => const LoadingDialog(),
     );
+    unawaited(navigator.push(loading));
   }
   try {
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -188,12 +208,16 @@ Future<void> _pickFiles(BuildContext context, Ref ref) async {
     await showDialog(context: context, builder: (_) => const NoPermissionDialog());
     _logger.warning('Failed to pick files', e);
   } finally {
-    // ignore: use_build_context_synchronously
-    Routerino.context.popUntilRoot(); // remove loading dialog
+    if (closeLegacyDialogs) {
+      // ignore: use_build_context_synchronously
+      Routerino.context.popUntilRoot(); // remove loading dialog
+    } else if (navigator.mounted && loading?.isActive == true) {
+      navigator.removeRoute(loading!);
+    }
   }
 }
 
-Future<void> _pickFolder(BuildContext context, Ref ref) async {
+Future<void> _pickFolder(BuildContext context, Ref ref, {required bool closeLegacyDialogs, required int? androidSdk}) async {
   if (checkPlatform([TargetPlatform.android])) {
     try {
       await Permission.storage.request();
@@ -206,15 +230,16 @@ Future<void> _pickFolder(BuildContext context, Ref ref) async {
     return;
   }
 
-  // ignore: unawaited_futures
-  showDialog(
+  final navigator = Navigator.of(context, rootNavigator: true);
+  final loading = DialogRoute<void>(
     context: context,
     barrierDismissible: false,
     builder: (_) => const LoadingDialog(),
   );
+  unawaited(navigator.push(loading));
   await sleepAsync(200); // Wait for the dialog to be shown
   try {
-    if (defaultTargetPlatform == TargetPlatform.android && (ref.read(deviceInfoProvider).androidSdkInt ?? 0) >= android_channel.contentUriMinSdk) {
+    if (defaultTargetPlatform == TargetPlatform.android && (androidSdk ?? 0) >= android_channel.contentUriMinSdk) {
       // Android 8 and above have more predictable content URIs that we can parse.
       final result = await android_channel.pickDirectoryAndroid();
       if (result != null) {
@@ -237,8 +262,12 @@ Future<void> _pickFolder(BuildContext context, Ref ref) async {
     // ignore: use_build_context_synchronously
     await showDialog(context: context, builder: (_) => const NoPermissionDialog());
   } finally {
-    // ignore: use_build_context_synchronously
-    Routerino.context.popUntilRoot(); // remove loading dialog
+    if (closeLegacyDialogs) {
+      // ignore: use_build_context_synchronously
+      Routerino.context.popUntilRoot(); // remove loading dialog
+    } else if (navigator.mounted && loading.isActive) {
+      navigator.removeRoute(loading);
+    }
   }
 }
 
