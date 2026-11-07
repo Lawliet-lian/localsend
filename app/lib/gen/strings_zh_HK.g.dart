@@ -121,6 +121,12 @@ class Translations$conversation$zh_HK extends Translations$conversation$en {
   @override
   String get send => '傳送';
   @override
+  String get cancelSend => '取消傳送';
+  @override
+  String get endSend => '結束工作';
+  @override
+  String retryFile({required Object name}) => '重試 ${name}';
+  @override
   String get clearConversation => '清空目前對話';
   @override
   late final Translations$conversation$clearPeerDialog$zh_HK clearPeerDialog = Translations$conversation$clearPeerDialog$zh_HK.internal(_root);
@@ -843,6 +849,8 @@ class Translations$conversation$outcome$zh_HK extends Translations$conversation$
   String get transferring => '傳輸中…';
   @override
   String get finished => '已完成';
+  @override
+  String get noFilesAccepted => '對方未接收任何檔案';
   @override
   String get partialFailure => '已完成但部分失敗';
   @override

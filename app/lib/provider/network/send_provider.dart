@@ -344,12 +344,18 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
             cancelToken: prepareUploadCancelToken,
           );
         } on rust_http.RsHttpClientError_StatusCode catch (e) {
+          if (state[sessionId]?.status != SessionStatus.waiting) {
+            return;
+          }
           switch (e.status) {
             case 401:
               invalidPin = true;
 
               // wait until animation is finished
               await sleepAsync(500);
+              if (state[sessionId]?.status != SessionStatus.waiting) {
+                return;
+              }
 
               pin = await showDialog<String>(
                 context: Routerino.context, // ignore: use_build_context_synchronously
@@ -358,6 +364,9 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
                   showInvalidPin: !pinFirstAttempt,
                 ),
               );
+              if (state[sessionId]?.status != SessionStatus.waiting) {
+                return;
+              }
 
               pinFirstAttempt = false;
 
@@ -416,6 +425,9 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
               return;
           }
         } catch (e) {
+          if (state[sessionId]?.status != SessionStatus.waiting) {
+            return;
+          }
           // P6b：网络/序列化等异常同样是失败终态
           _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.failed, error: e.humanErrorMessage);
           state = state.updateSession(
@@ -432,7 +444,7 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
       _prepareUploadCancelTokens.remove(sessionId);
     }
 
-    if (response == null) {
+    if (response == null || state[sessionId]?.status != SessionStatus.waiting) {
       return;
     }
 
@@ -465,7 +477,7 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
       }
     }
 
-    if (fileMap.isEmpty) {
+    if (!requestState.files.keys.any((id) => fileMap[id]?.isNotEmpty == true)) {
       // receiver has nothing selected
       state = state.updateSession(
         sessionId: sessionId,
@@ -475,7 +487,7 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
       );
 
       // P6b：204/无文件接受——先记录结果，再清理（方案 5.4）
-      _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.finished);
+      _conversationRecorder.onEmptyAcceptance(sessionId: sessionId, files: requestState.files);
 
       if (state[sessionId]?.background == false) {
         // Pop back to the existing HomePage instead of pushing a new one:
@@ -491,7 +503,7 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
 
     final sendingFiles = {
       for (final file in requestState.files.values)
-        file.file.id: fileMap.containsKey(file.file.id) ? file.copyWith(token: fileMap[file.file.id]) : file,
+        file.file.id: fileMap[file.file.id]?.isNotEmpty == true ? file.copyWith(token: fileMap[file.file.id]) : file,
     };
 
     // Recreate the transfer state: the hash progress is no longer needed and must not be
@@ -612,7 +624,7 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
       if (!hasError && sessionState.background == true) {
         // P6b：后台成功不发布 finished 状态就直接清理，终态快照必须在 closeSession 之前形成
         // （closeSession 会移除 presentation 映射，之后就识别不出会话 session 了）
-        _conversationRecorder.onTerminalSnapshot(session: sessionState, outcome: ConversationOutcome.finished);
+        _conversationRecorder.onTransferSnapshot(session: sessionState, outcome: ConversationOutcome.finished);
         // close session because everything is fine and it is in background
         closeSession(sessionId);
         _logger.info('Transfer finished and session removed.');
@@ -627,7 +639,7 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
         );
 
         // P6b：部分文件失败记 partialFailure，不得伪成功
-        _conversationRecorder.onTerminalSnapshot(
+        _conversationRecorder.onTransferSnapshot(
           session: state[sessionId]!,
           outcome: hasError ? ConversationOutcome.partialFailure : ConversationOutcome.finished,
         );
@@ -642,6 +654,37 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
   }
 
   final uriContent = UriContent();
+
+  void stopConversationSession(String sessionId, {required bool cancel}) {
+    final session = state[sessionId];
+    if (session == null || ref.notifier(transferPresentationProvider).get(sessionId) != TransferPresentation.conversation) {
+      return;
+    }
+    final status = session.status;
+    final active = status == SessionStatus.waiting || status == SessionStatus.sending;
+    if (cancel && active) {
+      cancelSession(sessionId);
+    } else if (!cancel && !active) {
+      if (status == SessionStatus.finishedWithErrors && session.remoteSessionId != null) {
+        _cancelSession(sessionId, recordCancellation: false);
+      } else {
+        closeSession(sessionId);
+      }
+    }
+  }
+
+  Future<void> retryConversationFile(String sessionId, String fileId) async {
+    final session = state[sessionId];
+    final file = session?.files[fileId];
+    if (session?.status != SessionStatus.finishedWithErrors ||
+        session?.remoteSessionId?.isNotEmpty != true ||
+        file?.token?.isNotEmpty != true ||
+        ref.notifier(transferPresentationProvider).get(sessionId) != TransferPresentation.conversation ||
+        !ref.read(fileTransferProvider).canRetry(sessionId: sessionId, fileId: fileId)) {
+      return;
+    }
+    await sendFile(sessionId: sessionId, file: file!, isRetry: true);
+  }
 
   /// Sends a single file. Currently only used to retry a failed file.
   Future<void> sendFile({
@@ -662,6 +705,7 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
     if (isRetry) {
       _logger.info('Retrying ${file.file.fileName}');
 
+      ref.notifier(fileTransferProvider).setProgress(sessionId: sessionId, fileId: file.file.id, progress: 0);
       ref.notifier(fileTransferProvider).setStatus(sessionId: sessionId, fileId: file.file.id, status: FileStatus.queue);
       state = state.updateSession(
         sessionId: sessionId,
@@ -675,6 +719,7 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
           }),
         ),
       );
+      _conversationRecorder.onTransferSnapshot(session: state[sessionId]!, outcome: ConversationOutcome.transferring);
     }
 
     final cache = _attachmentCaches[sessionId];
@@ -720,30 +765,35 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
       return;
     }
 
-    final taskResult = ref
-        .redux(parentIsolateProvider)
-        .dispatchTakeResult(
-          IsolateHttpUploadFilesAction(
-            remoteSessionId: sessionState.remoteSessionId,
-            files: uploadFiles,
-            device: sessionState.target,
-          ),
-        );
-
-    state = state.updateSession(
-      sessionId: sessionId,
-      state: (s) => s?.copyWith(
-        sendingTasks: [
-          ...?s.sendingTasks,
-          SendingTask(
-            taskId: taskResult.taskId,
-          ),
-        ],
-      ),
-    );
-
+    int? taskId;
     try {
+      final taskResult = ref
+          .redux(parentIsolateProvider)
+          .dispatchTakeResult(
+            IsolateHttpUploadFilesAction(
+              remoteSessionId: sessionState.remoteSessionId,
+              files: uploadFiles,
+              device: sessionState.target,
+            ),
+          );
+
+      taskId = taskResult.taskId;
+      state = state.updateSession(
+        sessionId: sessionId,
+        state: (s) => s?.copyWith(
+          sendingTasks: [
+            ...?s.sendingTasks,
+            SendingTask(
+              taskId: taskResult.taskId,
+            ),
+          ],
+        ),
+      );
+
       await for (final event in taskResult.events) {
+        if (state[sessionId]?.status != SessionStatus.sending) {
+          continue;
+        }
         switch (event) {
           case HttpUploadFileStartedEvent():
             _logger.info('Sending ${state[sessionId]?.files[event.fileId]?.file.fileName}');
@@ -770,7 +820,14 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
             ref.notifier(fileTransferProvider).setStatus(sessionId: sessionId, fileId: event.fileId, status: FileStatus.finished);
           case HttpUploadFileFailedEvent():
             _logger.warning('Error while sending file ${state[sessionId]?.files[event.fileId]?.file.fileName}: ${event.error}');
-            ref.notifier(fileTransferProvider).setStatus(sessionId: sessionId, fileId: event.fileId, status: FileStatus.failed);
+            ref
+                .notifier(fileTransferProvider)
+                .setStatus(
+                  sessionId: sessionId,
+                  fileId: event.fileId,
+                  status: FileStatus.failed,
+                  retryable: event.statusCode != 403 && event.statusCode != 404,
+                );
             state = state.updateSession(
               sessionId: sessionId,
               state: (s) => s?.withFileError(event.fileId, event.error),
@@ -778,6 +835,9 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
         }
       }
     } catch (e, st) {
+      if (state[sessionId]?.status != SessionStatus.sending) {
+        return;
+      }
       // the whole task failed, mark all files of this task that did not finish as failed
       _logger.warning('Error while sending files', e, st);
       final error = e.humanErrorMessage;
@@ -805,20 +865,24 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
       state = state.updateSession(
         sessionId: sessionId,
         state: (s) => s?.copyWith(
-          sendingTasks: s.sendingTasks?.where((task) => task.taskId != taskResult.taskId).toList(),
+          sendingTasks: s.sendingTasks?.where((task) => task.taskId != taskId).toList(),
         ),
       );
     }
   }
 
   /// Closes the send-session and sends a cancel event to the receiver.
-  void cancelSession(String sessionId) {
+  void cancelSession(String sessionId) => _cancelSession(sessionId, recordCancellation: true);
+
+  void _cancelSession(String sessionId, {required bool recordCancellation}) {
     final sessionState = state[sessionId];
     if (sessionState == null) {
       return;
     }
     // P6b：先记录取消来源，再调用原取消逻辑（后续 closeSession 会清理映射）
-    _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.canceledBySender);
+    if (recordCancellation) {
+      _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.canceledBySender);
+    }
     final remoteSessionId = sessionState.remoteSessionId;
 
     _cancelRunningRequests(sessionState);
@@ -831,16 +895,18 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
     // notify the receiver
     final target = sessionState.target;
     try {
-      ref
-          .read(httpProvider)
-          .pinnedTo(target.fingerprint)
-          // ignore: discarded_futures
-          .cancel(
-            protocol: target.getProtocolType(),
-            ip: target.ip!,
-            port: target.port,
-            sessionId: remoteSessionId,
-          );
+      unawaited(
+        ref
+            .read(httpProvider)
+            .pinnedTo(target.fingerprint)
+            .cancel(
+              protocol: target.getProtocolType(),
+              ip: target.ip!,
+              port: target.port,
+              sessionId: remoteSessionId,
+            )
+            .catchError((Object error) => _logger.warning('Error while canceling session', error)),
+      );
     } catch (e) {
       _logger.warning('Error while canceling session', e);
     }

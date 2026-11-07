@@ -9,6 +9,7 @@ import 'package:localsend_app/model/conversation/conversation_receive_card_vm.da
 import 'package:localsend_app/model/conversation/transfer_presentation.dart';
 import 'package:localsend_app/model/cross_file.dart';
 import 'package:localsend_app/model/state/send/send_session_state.dart';
+import 'package:localsend_app/model/state/send/sending_file.dart';
 import 'package:localsend_app/model/state/server/receive_session_state.dart';
 import 'package:localsend_app/model/state/server/receiving_file.dart';
 import 'package:localsend_app/pages/tabs/conversation_tab.dart';
@@ -16,13 +17,16 @@ import 'package:localsend_app/provider/conversation_attachment_provider.dart';
 import 'package:localsend_app/provider/conversation_provider.dart';
 import 'package:localsend_app/provider/conversation_ui_provider.dart';
 import 'package:localsend_app/provider/conversation_view_provider.dart';
+import 'package:localsend_app/provider/file_transfer_provider.dart';
 import 'package:localsend_app/provider/network/send_provider.dart';
 import 'package:localsend_app/provider/persistence_provider.dart';
 import 'package:localsend_app/provider/selection/selected_sending_files_provider.dart';
+import 'package:localsend_app/provider/transfer_presentation_provider.dart';
 import 'package:localsend_app/util/native/conversation_attachment_cache.dart';
 import 'package:localsend_app/widget/conversation/conversation_receive_card.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/model/dto/file_dto.dart';
+import 'package:localsend_isolates/model/file_status.dart';
 import 'package:localsend_isolates/model/file_type.dart';
 import 'package:localsend_isolates/model/session_status.dart';
 import 'package:mockito/mockito.dart';
@@ -42,15 +46,16 @@ import '../mocks.mocks.dart';
 /// （验证 presentation=conversation 接线与原文编码，不验证传输本身）
 class _RecordingSendNotifier extends SendNotifier {
   final calls = <({Device target, List<CrossFile> files, bool background, TransferPresentation presentation})>[];
+  final retries = <String>[];
 
   /// 注入一个未关闭的 session（模拟 P9b 活跃发送门槛；state 是 protected，只能子类内赋值）
-  void seedActiveSession() {
+  void seedActiveSession({Map<String, SendingFile> files = const {}, SessionStatus status = SessionStatus.sending}) {
     state = {
       'active-1': SendSessionState(
         sessionId: 'active-1',
         remoteSessionId: 'remote-1',
         background: true,
-        status: SessionStatus.sending,
+        status: status,
         target: Device(
           signalingId: null,
           ip: '10.0.0.1',
@@ -64,7 +69,7 @@ class _RecordingSendNotifier extends SendNotifier {
           download: false,
           channels: const [],
         ),
-        files: const {},
+        files: files,
         hashedFileCount: 0,
         startTime: null,
         endTime: null,
@@ -72,6 +77,13 @@ class _RecordingSendNotifier extends SendNotifier {
         errorMessage: null,
       ),
     };
+  }
+
+  @override
+  Future<void> sendFile({required String sessionId, required SendingFile file, required bool isRetry}) async {
+    if (isRetry) {
+      retries.add('$sessionId:${file.file.id}');
+    }
   }
 
   @override
@@ -198,6 +210,82 @@ void main() {
           ),
         );
   }
+
+  testWidgets('the send bubble reports accepted bytes and offers retry only for valid failed files', (tester) async {
+    final send = _RecordingSendNotifier();
+    late Ref ref;
+    await pumpTab(
+      tester,
+      width: 1000,
+      views: [fakeView('fp:aa:bb', alias: 'Real Device')],
+      onRef: (value) => ref = value,
+      overrides: [sendProvider.overrideWithNotifier((_) => send)],
+    );
+    SendingFile file(String id, int size, String? token) => SendingFile(
+      file: FileDto(id: id, fileName: '$id.txt', size: size, fileType: FileType.text, hash: null, preview: null, metadata: null),
+      token: token,
+      thumbnail: null,
+      asset: null,
+      path: null,
+      bytes: null,
+      errorMessage: null,
+    );
+    const id = 'active-1';
+    final sendingFiles = {'accepted': file('accepted', 10, 'token'), 'skipped': file('skipped', 90, null)};
+    send.seedActiveSession(files: sendingFiles);
+    ref.notifier(transferPresentationProvider).set(id, TransferPresentation.conversation);
+    ref
+        .redux(conversationProvider)
+        .dispatch(
+          EnsureTransferEntryAction(
+            peer: const ConversationPeer(peerKey: 'fp:aa:bb', fingerprint: 'AA:BB', alias: 'Real Device', deviceType: DeviceType.desktop),
+            direction: ConversationDirection.send,
+            localSessionId: id,
+            kind: ConversationEntryKind.file,
+            initialOutcome: ConversationOutcome.transferring,
+            files: [
+              for (final file in sendingFiles.values)
+                ConversationFileSummary(
+                  fileId: file.file.id,
+                  fileName: file.file.fileName,
+                  fileType: file.file.fileType,
+                  size: file.file.size,
+                  outcome: file.token == null ? ConversationFileOutcome.skipped : ConversationFileOutcome.pending,
+                  path: null,
+                  savedToGallery: false,
+                  error: null,
+                ),
+            ],
+          ),
+        );
+    final progress = ref.notifier(fileTransferProvider);
+    progress.setStatus(sessionId: id, fileId: 'skipped', status: FileStatus.skipped);
+    progress.setProgress(sessionId: id, fileId: 'accepted', progress: 0.5);
+    await tester.pump();
+    await tester.tap(find.text('Real Device'));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value, 0.5);
+    expect(find.text('50%'), findsOneWidget);
+    expect(find.text(t.conversation.cancelSend), findsOneWidget);
+
+    progress.setProgress(sessionId: id, fileId: 'accepted', progress: 0.75);
+    await tester.pump();
+    expect(find.text('75%'), findsOneWidget);
+
+    send.seedActiveSession(files: sendingFiles, status: SessionStatus.finishedWithErrors);
+    progress.setStatus(sessionId: id, fileId: 'accepted', status: FileStatus.failed);
+    await tester.pumpAndSettle();
+    final retry = find.text(t.conversation.retryFile(name: 'accepted.txt'));
+    await tester.tap(retry);
+    expect(send.retries, ['$id:accepted']);
+
+    progress.setStatus(sessionId: id, fileId: 'accepted', status: FileStatus.failed, retryable: false);
+    await tester.pumpAndSettle();
+    expect(retry, findsNothing);
+    expect(find.text(t.conversation.endSend), findsOneWidget);
+    expect(find.text(t.conversation.cancelSend), findsNothing);
+  });
 
   testWidgets('宽屏两栏：注入的真实投影数据渲染列表，未选中时右列提示选择设备', (tester) async {
     await pumpTab(

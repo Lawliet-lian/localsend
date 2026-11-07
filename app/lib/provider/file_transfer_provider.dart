@@ -9,6 +9,7 @@ final fileTransferProvider = ChangeNotifierProvider((ref) => FileTransferNotifie
 class FileTransfer {
   FileStatus status;
   double progress; // 0..1
+  bool retryable = true;
 
   FileTransfer(this.status) : progress = 0;
 
@@ -19,8 +20,10 @@ class FileTransfer {
 class FileTransferNotifier extends ChangeNotifier {
   final _sessionMap = <String, Map<String, FileTransfer>>{}; // session id -> (file id -> live transfer state)
 
-  void setStatus({required String sessionId, required String fileId, required FileStatus status}) {
-    _sessionMap.putIfAbsent(sessionId, () => {}).putIfAbsent(fileId, () => FileTransfer(status)).status = status;
+  void setStatus({required String sessionId, required String fileId, required FileStatus status, bool retryable = true}) {
+    final file = _sessionMap.putIfAbsent(sessionId, () => {}).putIfAbsent(fileId, () => FileTransfer(status));
+    file.status = status;
+    file.retryable = retryable;
     notifyListeners();
   }
 
@@ -40,6 +43,11 @@ class FileTransferNotifier extends ChangeNotifier {
 
   FileStatus getStatus({required String sessionId, required String fileId}) {
     return _sessionMap[sessionId]?[fileId]?.status ?? FileStatus.queue;
+  }
+
+  bool canRetry({required String sessionId, required String fileId}) {
+    final file = _sessionMap[sessionId]?[fileId];
+    return file?.status == FileStatus.failed && file?.retryable == true;
   }
 
   Iterable<FileStatus> getStatuses(String sessionId) {

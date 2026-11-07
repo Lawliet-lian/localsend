@@ -9,6 +9,9 @@
     "collapse": "收起",
     "composeHint": "输入消息…",
     "send": "发送",
+    "cancelSend": "取消发送",
+    "endSend": "结束任务",
+    "retryFile": "重试 {name}",
     "clearConversation": "清空当前会话",
     "clearPeerDialog": {
       "title": "清空会话",
@@ -26,6 +29,7 @@
       "waiting": "等待对方响应…",
       "transferring": "传输中…",
       "finished": "已完成",
+      "noFilesAccepted": "对方未接收任何文件",
       "partialFailure": "已完成但部分失败",
       "declined": "已被拒绝",
       "busy": "对方正忙",

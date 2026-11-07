@@ -145,6 +145,8 @@ class ConversationOutcomeMapper extends EnumMapper<ConversationOutcome> {
         return ConversationOutcome.failed;
       case r'incomplete':
         return ConversationOutcome.incomplete;
+      case r'noFilesAccepted':
+        return ConversationOutcome.noFilesAccepted;
       default:
         throw MapperException.unknownEnumValue(value);
     }
@@ -177,6 +179,8 @@ class ConversationOutcomeMapper extends EnumMapper<ConversationOutcome> {
         return r'failed';
       case ConversationOutcome.incomplete:
         return r'incomplete';
+      case ConversationOutcome.noFilesAccepted:
+        return r'noFilesAccepted';
     }
   }
 }

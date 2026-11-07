@@ -6,11 +6,12 @@ import 'package:localsend_isolates/model/file_type.dart';
 /// 单条会话记录的只读气泡（方案 6.2）。
 ///
 /// - 方向：send 右对齐、receive 左对齐；每次传输恰好一条气泡（批量文件放同一气泡内）。
-/// - 纯展示组件：不提供取消/重试/接受等任何操作入口（第 4 节不变量 1：展示状态不拥有传输能力）。
+/// - 发送操作由调用方传入，气泡只负责布局。
 class ConversationEntryTile extends StatefulWidget {
   final ConversationEntry entry;
+  final Widget? transferControls;
 
-  const ConversationEntryTile({super.key, required this.entry});
+  const ConversationEntryTile({super.key, required this.entry, this.transferControls});
 
   /// 超过该字符数的文字气泡默认折叠（避免固定高度裁剪丢内容，方案 6.2）。
   static const _collapsedChars = 300;
@@ -36,16 +37,15 @@ class _ConversationEntryTileState extends State<ConversationEntryTile> {
 
     final children = <Widget>[
       // 状态行：outcome 图标 + 状态文案 + 创建时间
-      Row(
-        mainAxisSize: MainAxisSize.min,
+      Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
         children: [
           Icon(_outcomeIcon(entry.outcome), size: 14, color: _outcomeColor(theme, entry.outcome)),
-          const SizedBox(width: 4),
           Text(
             _outcomeLabel(entry.outcome, isSend: isSend),
             style: theme.textTheme.labelSmall?.copyWith(color: textColor.withValues(alpha: 0.7)),
           ),
-          const SizedBox(width: 8),
           Text(
             _formatTime(entry.createdAt),
             style: theme.textTheme.labelSmall?.copyWith(color: textColor.withValues(alpha: 0.7)),
@@ -120,6 +120,9 @@ class _ConversationEntryTileState extends State<ConversationEntryTile> {
         ),
       );
     }
+    if (widget.transferControls case final controls?) {
+      children.add(controls);
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -177,6 +180,7 @@ String _outcomeLabel(ConversationOutcome outcome, {required bool isSend}) {
     ConversationOutcome.canceledByReceiver => t.conversation.outcome.canceledByReceiver,
     ConversationOutcome.failed => t.conversation.outcome.failed,
     ConversationOutcome.incomplete => t.conversation.outcome.incomplete,
+    ConversationOutcome.noFilesAccepted => t.conversation.outcome.noFilesAccepted,
   };
 }
 
@@ -194,6 +198,7 @@ IconData _outcomeIcon(ConversationOutcome outcome) {
     ConversationOutcome.canceledByReceiver => Icons.cancel_outlined,
     ConversationOutcome.failed => Icons.error_outline,
     ConversationOutcome.incomplete => Icons.pending_actions,
+    ConversationOutcome.noFilesAccepted => Icons.skip_next,
   };
 }
 

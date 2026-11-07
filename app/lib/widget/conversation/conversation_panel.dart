@@ -26,6 +26,7 @@ class ConversationPanel extends StatelessWidget {
 
   /// 全部会话记录；面板按选中设备的 peerKey 过滤展示。
   final List<ConversationEntry> entries;
+  final Widget Function(ConversationEntry)? entryBuilder;
   final String? selectedPeerKey;
 
   /// 窄屏（单栏）时是否展示详情页。
@@ -74,6 +75,7 @@ class ConversationPanel extends StatelessWidget {
     super.key,
     required this.views,
     required this.entries,
+    this.entryBuilder,
     required this.selectedPeerKey,
     required this.onSelect,
     required this.draftText,
@@ -171,6 +173,7 @@ class ConversationPanel extends StatelessWidget {
     return _ConversationDetail(
       view: selected,
       entries: _entriesFor(selected.peerKey),
+      entryBuilder: entryBuilder,
       // 两栏时列表常驻左侧无需返回按钮；单栏详情必须能返回列表（方案 6.2）
       showBackButton: !twoPane,
       onBack: () => onSelect(null),
@@ -202,6 +205,7 @@ class ConversationPanel extends StatelessWidget {
 class _ConversationDetail extends StatelessWidget {
   final ConversationPeerView view;
   final List<ConversationEntry> entries;
+  final Widget Function(ConversationEntry)? entryBuilder;
   final bool showBackButton;
   final VoidCallback onBack;
   final String draftText;
@@ -222,6 +226,7 @@ class _ConversationDetail extends StatelessWidget {
   const _ConversationDetail({
     required this.view,
     required this.entries,
+    required this.entryBuilder,
     required this.showBackButton,
     required this.onBack,
     required this.draftText,
@@ -317,7 +322,7 @@ class _ConversationDetail extends StatelessWidget {
                     style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline),
                   ),
                 )
-              : _EntryListView(entries: entries),
+              : _EntryListView(entries: entries, entryBuilder: entryBuilder),
         ),
         // 输入栏（P6c）：离线设备禁用发送但保留草稿（方案 6.2：离线仍可查看历史、禁发送）；
         // key 按 peerKey 重建，切设备不串输入；
@@ -342,8 +347,9 @@ class _ConversationDetail extends StatelessWidget {
 /// 用户向上浏览旧消息不受影响（自动滚到底的精细规则属于 P6/P7 接入批）。
 class _EntryListView extends StatelessWidget {
   final List<ConversationEntry> entries;
+  final Widget Function(ConversationEntry)? entryBuilder;
 
-  const _EntryListView({required this.entries});
+  const _EntryListView({required this.entries, required this.entryBuilder});
 
   @override
   Widget build(BuildContext context) {
@@ -355,7 +361,13 @@ class _EntryListView extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         // index 0 = 最新记录（底部），倒序访问
         itemCount: entries.length,
-        itemBuilder: (context, index) => ConversationEntryTile(entry: entries[entries.length - 1 - index]),
+        itemBuilder: (context, index) {
+          final entry = entries[entries.length - 1 - index];
+          return KeyedSubtree(
+            key: ValueKey(entry.entryId),
+            child: entryBuilder?.call(entry) ?? ConversationEntryTile(entry: entry),
+          );
+        },
       ),
     );
   }

@@ -59,6 +59,7 @@ enum ConversationOutcome {
   canceledByReceiver, // 接收端取消
   failed, // 网络异常等其他失败
   incomplete, // 重启后未结束的历史记录
+  noFilesAccepted, // 对方未选择任何附件
 }
 
 /// 单个文件的最终展示状态。与 isolate 层的 FileStatus 分离，

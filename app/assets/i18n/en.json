@@ -9,6 +9,9 @@
     "collapse": "Collapse",
     "composeHint": "Type a message…",
     "send": "Send",
+    "cancelSend": "Cancel send",
+    "endSend": "End transfer",
+    "retryFile": "Retry {name}",
     "clearConversation": "Clear this conversation",
     "clearPeerDialog": {
       "title": "Clear conversation",
@@ -26,6 +29,7 @@
       "waiting": "Waiting for response…",
       "transferring": "Transferring…",
       "finished": "Finished",
+      "noFilesAccepted": "No files accepted",
       "partialFailure": "Finished with errors",
       "declined": "Declined",
       "busy": "Recipient busy",

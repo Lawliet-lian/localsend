@@ -32,6 +32,32 @@ class ConversationSendRecorder {
     return _ref.read(transferPresentationProvider)[sessionId] == TransferPresentation.conversation;
   }
 
+  void onEmptyAcceptance({required String sessionId, required Map<String, SendingFile> files}) {
+    if (!_isConversation(sessionId)) {
+      return;
+    }
+    final isMessage = files.length == 1 && files.values.single.file.preview != null;
+    update(
+      sessionId: sessionId,
+      outcome: isMessage ? ConversationOutcome.finished : ConversationOutcome.noFilesAccepted,
+      replaceFiles: isMessage
+          ? const []
+          : [
+              for (final file in files.values)
+                ConversationFileSummary(
+                  fileId: file.file.id,
+                  fileName: file.file.fileName,
+                  fileType: file.file.fileType,
+                  size: file.file.size,
+                  outcome: ConversationFileOutcome.skipped,
+                  path: null,
+                  savedToGallery: false,
+                  error: null,
+                ),
+            ],
+    );
+  }
+
   /// 接入点 1：session 创建后登记设备信息与文件摘要，初始阶段 preparing（校验和计算中）。
   /// [selectedFiles] 即 startSession 中已分配 id 的文件列表，id 与后续 FileStatus 的键一致。
   /// [text] 非空表示纯文字会话（P6c）：kind = text，正文原样保存（不 trim、保留换行），
@@ -148,9 +174,8 @@ class ConversationSendRecorder {
     );
   }
 
-  /// 接入点 4：从最终 session 状态形成终态快照（含每个文件的实时结果与单文件错误）。
-  /// 必须在 closeSession 之前调用：closeSession 会移除 presentation 映射并清理进度状态。
-  void onTerminalSnapshot({
+  /// 从实时状态记录重试或最终结果。终态须在 closeSession 清理进度之前记录。
+  void onTransferSnapshot({
     required SendSessionState session,
     required ConversationOutcome outcome,
   }) {

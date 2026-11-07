@@ -17,6 +17,7 @@ import 'package:localsend_app/provider/network/send_provider.dart';
 import 'package:localsend_app/provider/network/server/server_provider.dart';
 import 'package:localsend_app/provider/transfer_presentation_provider.dart';
 import 'package:localsend_app/widget/conversation/conversation_panel.dart';
+import 'package:localsend_app/widget/conversation/conversation_send_entry_tile.dart';
 import 'package:localsend_app/widget/dialogs/conversation_clear_dialog.dart';
 import 'package:localsend_isolates/model/file_type.dart';
 import 'package:refena_flutter/refena_flutter.dart';
@@ -84,6 +85,7 @@ class ConversationTab extends StatelessWidget {
     return ConversationPanel(
       views: views,
       entries: entries,
+      entryBuilder: (entry) => ConversationSendEntryTile(entry: entry),
       selectedPeerKey: ui.selectedPeerKey,
       showDetailOnNarrow: ui.showDetailOnMobile,
       onSelect: (peerKey) {

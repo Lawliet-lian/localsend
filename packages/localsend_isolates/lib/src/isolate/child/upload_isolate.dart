@@ -94,10 +94,12 @@ class HttpUploadFileFinishedEvent extends HttpUploadEvent {
 /// The upload of the file has failed. The next file is still uploaded.
 class HttpUploadFileFailedEvent extends HttpUploadEvent {
   final String error;
+  final int? statusCode;
 
   HttpUploadFileFailedEvent({
     required super.fileId,
     required this.error,
+    this.statusCode,
   });
 }
 
@@ -214,6 +216,7 @@ Future<void> setupHttpUploadIsolate(
                 data: HttpUploadFileFailedEvent(
                   fileId: file.fileId,
                   error: e.humanErrorMessage,
+                  statusCode: e is RsHttpClientError_StatusCode ? e.status : null,
                 ),
               ),
             );

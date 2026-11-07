@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:localsend_app/model/conversation/conversation_models.dart';
 import 'package:localsend_app/model/conversation/transfer_presentation.dart';
@@ -773,10 +772,11 @@ void _cancelBySender(ServerUtils server) {
 
   TransferNotification.stop(receiveSession.sessionId);
 
-  if (receiveSession.status == SessionStatus.waiting) {
+  final presentation = server.ref.read(transferPresentationProvider)[receiveSession.sessionId] ?? TransferPresentation.legacy;
+  if (shouldDismissReceiveOptions(receiveSession.status, presentation)) {
     // received cancel during accept/decline
     // pop just in case if user is in [ReceiveOptionsPage]
-    Routerino.context.popUntil(ReceivePage);
+    dismissReceiveOptions(Navigator.of(Routerino.context));
   }
 
   server.setState(
@@ -787,6 +787,16 @@ void _cancelBySender(ServerUtils server) {
       ),
     ),
   );
+}
+
+@visibleForTesting
+bool shouldDismissReceiveOptions(SessionStatus status, TransferPresentation presentation) {
+  return status == SessionStatus.waiting && presentation == TransferPresentation.legacy;
+}
+
+@visibleForTesting
+void dismissReceiveOptions(NavigatorState navigator) {
+  navigator.popUntil((route) => route.settings.name == '$ReceivePage' || route.isFirst);
 }
 
 extension on ReceiveSessionState {

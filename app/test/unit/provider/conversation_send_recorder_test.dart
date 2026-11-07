@@ -81,7 +81,7 @@ void main() {
     ];
   }
 
-  SendingFile sendingFile(String id, {String? token, String? error}) {
+  SendingFile sendingFile(String id, {String? token, String? error, String? preview}) {
     return SendingFile(
       file: FileDto(
         id: id,
@@ -89,7 +89,7 @@ void main() {
         size: 10,
         fileType: FileType.other,
         hash: null,
-        preview: null,
+        preview: preview,
         metadata: null,
       ),
       token: token,
@@ -140,6 +140,28 @@ void main() {
   }
 
   group('ConversationSendRecorder', () {
+    test('an empty attachment acceptance records skipped files and survives serialization', () {
+      markConversation();
+      recorder.onSessionCreated(sessionId: sessionId, target: target(), selectedFiles: selectedFiles());
+      recorder.onEmptyAcceptance(sessionId: sessionId, files: {'f1': sendingFile('f1'), 'f2': sendingFile('f2')});
+
+      final snapshot = ConversationEntryMapper.deserialize(entry()!.serialize());
+      expect(snapshot.outcome, ConversationOutcome.noFilesAccepted);
+      expect(snapshot.files.map((file) => file.outcome), [ConversationFileOutcome.skipped, ConversationFileOutcome.skipped]);
+    });
+
+    test('an empty acceptance confirms a text preview', () {
+      markConversation();
+      recorder.onSessionCreated(sessionId: sessionId, target: target(), selectedFiles: [], text: 'hello');
+      recorder.onEmptyAcceptance(
+        sessionId: sessionId,
+        files: {'f1': sendingFile('f1', preview: 'hello')},
+      );
+
+      expect(entry()!.outcome, ConversationOutcome.finished);
+      expect(entry()!.files, isEmpty);
+    });
+
     test('testLegacySessionProducesNoRecords', () {
       // 门槛：旧 legacy 路径不产生任何会话记录（未记录 presentation = legacy）
       recorder.onSessionCreated(sessionId: sessionId, target: target(), selectedFiles: selectedFiles());
@@ -148,7 +170,7 @@ void main() {
         sessionId: sessionId,
         files: {'f1': sendingFile('f1', token: 't')},
       );
-      recorder.onTerminalSnapshot(
+      recorder.onTransferSnapshot(
         session: session({'f1': sendingFile('f1', token: 't')}),
         outcome: ConversationOutcome.finished,
       );
@@ -241,7 +263,7 @@ void main() {
         'queued': sendingFile('queued', token: 't'),
       }, errorMessage: 'partial network error');
 
-      recorder.onTerminalSnapshot(session: snapshotSession, outcome: ConversationOutcome.partialFailure);
+      recorder.onTransferSnapshot(session: snapshotSession, outcome: ConversationOutcome.partialFailure);
 
       final e = entry()!;
       expect(e.outcome, ConversationOutcome.partialFailure);

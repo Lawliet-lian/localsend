@@ -108,6 +108,15 @@ class Translations$conversation$en {
   /// en: 'Send'
   String get send => 'Send';
 
+  /// en: 'Cancel send'
+  String get cancelSend => 'Cancel send';
+
+  /// en: 'End transfer'
+  String get endSend => 'End transfer';
+
+  /// en: 'Retry {name}'
+  String retryFile({required Object name}) => 'Retry ${name}';
+
   /// en: 'Clear this conversation'
   String get clearConversation => 'Clear this conversation';
 
@@ -1050,6 +1059,9 @@ class Translations$conversation$outcome$en {
 
   /// en: 'Finished'
   String get finished => 'Finished';
+
+  /// en: 'No files accepted'
+  String get noFilesAccepted => 'No files accepted';
 
   /// en: 'Finished with errors'
   String get partialFailure => 'Finished with errors';
