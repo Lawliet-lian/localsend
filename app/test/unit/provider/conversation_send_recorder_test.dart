@@ -81,13 +81,13 @@ void main() {
     ];
   }
 
-  SendingFile sendingFile(String id, {String? token, String? error, String? preview}) {
+  SendingFile sendingFile(String id, {String? token, String? error, String? preview, FileType type = FileType.other, String? path}) {
     return SendingFile(
       file: FileDto(
         id: id,
         fileName: '$id.bin',
         size: 10,
-        fileType: FileType.other,
+        fileType: type,
         hash: null,
         preview: preview,
         metadata: null,
@@ -95,7 +95,7 @@ void main() {
       token: token,
       thumbnail: null,
       asset: null,
-      path: null,
+      path: path,
       bytes: null,
       errorMessage: error,
     );
@@ -140,6 +140,21 @@ void main() {
   }
 
   group('ConversationSendRecorder', () {
+    test('gallery preview URI survives transfer snapshots and history serialization', () {
+      const galleryUri = 'content://media/external/images/media/42';
+      markConversation();
+      recorder.onSessionCreated(sessionId: sessionId, target: target(), selectedFiles: selectedFiles(), previewPaths: {'f2': galleryUri});
+      final files = {
+        'f2': sendingFile('f2', token: 't', type: FileType.image, path: '/tmp/staged-image'),
+      };
+
+      recorder.onTransferring(sessionId: sessionId, files: files);
+      recorder.onTransferSnapshot(session: session(files), outcome: ConversationOutcome.finished);
+
+      final snapshot = ConversationEntryMapper.deserialize(entry()!.serialize());
+      expect(snapshot.files.single.path, galleryUri);
+    });
+
     test('an empty attachment acceptance records skipped files and survives serialization', () {
       markConversation();
       recorder.onSessionCreated(sessionId: sessionId, target: target(), selectedFiles: selectedFiles());

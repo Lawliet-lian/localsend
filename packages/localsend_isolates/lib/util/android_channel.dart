@@ -7,6 +7,10 @@ import 'package:logging/logging.dart';
 const _methodChannel = MethodChannel('org.localsend.localsend_app/localsend');
 final _logger = Logger('AndroidSaf');
 
+/// Saves an image to MediaStore and returns its URI on Android 10 and later.
+Future<String?> saveGalleryImageAndroid({required String path, required String fileName}) =>
+    _methodChannel.invokeMethod<String>('saveGalleryImage', {'path': path, 'fileName': fileName});
+
 /// Scans a saved file at an absolute filesystem [path]
 Future<void> scanFileAndroid({required String path}) async {
   try {

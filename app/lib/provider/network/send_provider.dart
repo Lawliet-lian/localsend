@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:localsend_app/model/conversation/conversation_models.dart';
 import 'package:localsend_app/model/conversation/transfer_presentation.dart';
@@ -154,14 +156,27 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
       // 成功后自动 closeSession）；会话内 UI 由 presentation 映射 + session 状态驱动（P6b）。
       background = true;
     }
-    // 每个 session 独立保存展示模式（方案 5.3）：不得用当前 tab 推断
-    ref.notifier(transferPresentationProvider).set(sessionId, presentation);
-
-    final createChecksums = ref.read(settingsProvider).createChecksums;
-
     // The ids are assigned upfront, so the checksums calculated below
     // can be mapped back to the corresponding file.
     final selectedFiles = files.map((file) => (id: _uuid.v4(), file: file)).toList();
+    final previewPaths = <String, String>{};
+    if (presentation == TransferPresentation.conversation && Platform.isAndroid) {
+      for (final (:id, :file) in selectedFiles) {
+        final asset = file.asset;
+        if (file.fileType != FileType.image || asset == null) continue;
+        try {
+          // The staged upload copy is deleted on completion. Preview the original gallery asset.
+          final uri = await asset.getMediaUrl();
+          if (uri != null && uri.startsWith('content://')) previewPaths[id] = uri;
+        } catch (_) {
+          _logger.fine('Could not resolve the gallery URI for a sent image');
+        }
+      }
+    }
+
+    // 每个 session 独立保存展示模式（方案 5.3）：不得用当前 tab 推断
+    ref.notifier(transferPresentationProvider).set(sessionId, presentation);
+    final createChecksums = ref.read(settingsProvider).createChecksums;
 
     state = state.updateSession(
       sessionId: sessionId,
@@ -221,6 +236,7 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
       sessionId: sessionId,
       target: target,
       selectedFiles: selectedFiles,
+      previewPaths: previewPaths,
       text: ConversationSendRecorder.extractMessageText(files),
     );
 

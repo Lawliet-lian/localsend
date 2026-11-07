@@ -95,7 +95,7 @@ class FilePathThumbnail extends StatelessWidget {
           image: ResizeImage.resizeIfNeeded(
             64,
             null,
-            _ContentUriImage(Uri.parse(path!)),
+            ContentUriImage(Uri.parse(path!)),
           ),
           errorBuilder: (_, _, _) => Padding(
             padding: const EdgeInsets.all(10),
@@ -193,10 +193,10 @@ class _Thumbnail extends StatelessWidget {
   }
 }
 
-class _ContentUriImage extends ImageProvider<Uri> {
+class ContentUriImage extends ImageProvider<Uri> {
   final Uri uri;
 
-  _ContentUriImage(this.uri);
+  ContentUriImage(this.uri);
 
   @override
   Future<Uri> obtainKey(ImageConfiguration configuration) {

@@ -1,7 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/conversation/conversation_models.dart';
+import 'package:localsend_app/util/native/open_file.dart';
+import 'package:localsend_app/util/native/open_folder.dart';
+import 'package:localsend_app/util/native/platform_check.dart';
+import 'package:localsend_app/widget/conversation/conversation_file_tile.dart';
+import 'package:localsend_app/widget/dialogs/cannot_open_file_dialog.dart';
 import 'package:localsend_isolates/model/file_type.dart';
+import 'package:path/path.dart' as p;
 
 /// 单条会话记录的只读气泡（方案 6.2）。
 ///
@@ -78,6 +86,47 @@ class _ConversationEntryTileState extends State<ConversationEntryTile> {
     } else {
       // 文件卡片：名称、大小、单文件结果（图片缩略图属于 P7，这里仅图标）
       for (final file in entry.files) {
+        final path = file.path;
+        final canShowInFolder =
+            file.outcome == ConversationFileOutcome.success &&
+            !file.savedToGallery &&
+            path != null &&
+            path.isNotEmpty &&
+            !path.startsWith('content://') &&
+            checkPlatformIsDesktop();
+        Widget folderButton() => IconButton(
+          tooltip: t.receiveHistoryPage.entryActions.showInFolder,
+          icon: const Icon(Icons.folder_open_outlined),
+          onPressed: () async {
+            if (!await File(path!).exists()) {
+              if (context.mounted) await CannotOpenFileDialog.open(context, path, null);
+              return;
+            }
+            await openFolder(folderPath: p.dirname(path), fileName: p.basename(path));
+          },
+        );
+        if (file.fileType == FileType.image &&
+            file.path != null &&
+            file.path!.isNotEmpty &&
+            (isSend || file.outcome == ConversationFileOutcome.success)) {
+          children.add(
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ConversationFileThumb(file: file),
+                  if (file.savedToGallery) Text(t.progressPage.savedToGallery, style: theme.textTheme.labelSmall),
+                  if (canShowInFolder) folderButton(),
+                ],
+              ),
+            ),
+          );
+          continue;
+        }
+        if (!isSend && file.outcome == ConversationFileOutcome.success && file.savedToGallery) {
+          children.add(Text(t.progressPage.savedToGallery, style: theme.textTheme.labelSmall));
+        }
         children.add(
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
@@ -100,6 +149,13 @@ class _ConversationEntryTileState extends State<ConversationEntryTile> {
                 ),
                 const SizedBox(width: 4),
                 Icon(_fileOutcomeIcon(file.outcome), size: 14, color: _fileOutcomeColor(theme, file.outcome)),
+                if (canShowInFolder) folderButton(),
+                if (!isSend && file.outcome == ConversationFileOutcome.success && !file.savedToGallery && file.path != null && file.path!.isNotEmpty)
+                  IconButton(
+                    tooltip: t.general.open,
+                    icon: const Icon(Icons.open_in_new),
+                    onPressed: () => openFile(context, file.fileType, file.path!),
+                  ),
               ],
             ),
           ),

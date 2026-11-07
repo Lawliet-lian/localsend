@@ -3,6 +3,7 @@ package org.localsend.localsend_app
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ContentResolver
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -12,6 +13,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.DocumentsContract
+import android.provider.MediaStore
 import android.provider.Settings
 import android.webkit.MimeTypeMap
 import io.flutter.embedding.android.FlutterActivity
@@ -109,8 +111,45 @@ class MainActivity : FlutterActivity() {
                 "scanFile" -> handleScanFile(call, result)
 
                 "openContentUri" -> {
-                    openUri(context, call.argument<String>("uri")!!)
-                    result.success(null)
+                    try {
+                        openUri(context, call.argument<String>("uri")!!)
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("open_content_uri_failed", e.message, null)
+                    }
+                }
+
+                "saveGalleryImage" -> {
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                        result.success(null)
+                    } else {
+                        val path = call.argument<String>("path")!!
+                        val name = call.argument<String>("fileName")!!
+                        Thread {
+                            var uri: Uri? = null
+                            try {
+                                val extension = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+                                val mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "image/jpeg"
+                                val values = ContentValues().apply {
+                                    put(MediaStore.Images.Media.DISPLAY_NAME, name)
+                                    put(MediaStore.Images.Media.MIME_TYPE, mime)
+                                    put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/LocalSend")
+                                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                                }
+                                uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                                    ?: throw IllegalStateException("Could not create gallery image")
+                                val savedUri = uri
+                                val output = contentResolver.openOutputStream(savedUri) ?: throw IllegalStateException("Could not write gallery image")
+                                output.use { out -> File(path).inputStream().use { input -> input.copyTo(out) } }
+                                val published = ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }
+                                if (contentResolver.update(savedUri, published, null, null) != 1) throw IllegalStateException("Could not publish gallery image")
+                                runOnUiThread { result.success(savedUri.toString()) }
+                            } catch (e: Exception) {
+                                uri?.let { try { contentResolver.delete(it, null, null) } catch (_: Exception) { } }
+                                runOnUiThread { result.error("save_gallery_image_failed", e.message, null) }
+                            }
+                        }.start()
+                    }
                 }
 
                 "openGallery" -> {

@@ -122,7 +122,7 @@ Future<FileSaveTarget> reopenFileSaveTarget(FileSaveTarget target) async {
 ///
 /// Returns (savedToGallery, filePath):
 /// - savedToGallery: true if saved to gallery, false if saved to directory
-/// - filePath: absolute path to file (null when saved to gallery)
+/// - filePath: saved file path or, where available, the gallery content URI
 Future<(bool, String?)> saveCachedFileToGallery({
   required String cachedPath,
   required String destinationDirectory,
@@ -130,6 +130,21 @@ Future<(bool, String?)> saveCachedFileToGallery({
   required bool isImage,
   required Set<String> createdDirectories,
 }) async {
+  if (Platform.isAndroid && isImage) {
+    try {
+      final uri = await android_channel.saveGalleryImageAndroid(path: cachedPath, fileName: p.basename(fileName));
+      if (uri != null) {
+        try {
+          await File(cachedPath).delete();
+        } catch (e) {
+          _logger.warning('Could not delete cached gallery file', e);
+        }
+        return (true, uri);
+      }
+    } catch (e) {
+      _logger.warning('Could not save image with a gallery URI; trying existing gallery flow', e);
+    }
+  }
   try {
     isImage ? await Gal.putImage(cachedPath) : await Gal.putVideo(cachedPath);
   } on GalException catch (e) {

@@ -1,24 +1,20 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/conversation/conversation_models.dart';
+import 'package:localsend_app/widget/file_thumbnail.dart';
 import 'package:localsend_isolates/model/file_type.dart';
 
-/// 会话文件气泡里的缩略图块（P10 本地缩略图预览）。
-///
-/// 设计边界（严格不碰 Rust/协议/isolate/依赖）：
-/// - 仅当 [ConversationFileSummary] 是图片、且携带本地 [ConversationFileSummary.path] 时，
-///   才用 Image.file 渲染缩略图；加载失败/文件缺失通过 errorBuilder 回退到类型图标，
-///   绝不抛异常、不影响气泡其余部分；
-/// - 视频的帧缩略需要解码插件（引入依赖，违背约束），故视频/其它类型一律保持图标呈现；
-/// - 本 widget 纯展示、不订阅 provider、不做任何打开/预览动作（全屏预览属后续批次）。
+/// 会话中本地文件或 Android content URI 的图片预览。
 class ConversationFileThumb extends StatelessWidget {
   final ConversationFileSummary file;
 
-  /// 缩略图与图标的统一边长（正方形，嵌入文件行的 Row 里）。
+  /// 图片预览的最大边长。
   final double size;
 
-  const ConversationFileThumb({super.key, required this.file, this.size = 40});
+  const ConversationFileThumb({super.key, required this.file, this.size = 220});
 
   @override
   Widget build(BuildContext context) {
@@ -40,22 +36,73 @@ class ConversationFileThumb extends StatelessWidget {
       );
     }
 
-    // 图片缩略图：cacheWidth 限制解码内存，避免整张原图解码拖慢列表；圆角贴合气泡风格。
+    final ImageProvider<Object> provider = path.startsWith('content://') ? ContentUriImage(Uri.parse(path)) : FileImage(File(path));
+    Widget failed({Color? color}) => SizedBox(
+      width: size,
+      height: 80,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.broken_image_outlined, color: color),
+          Text(
+            t.dialogs.cannotOpenFile.title,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: color),
+          ),
+        ],
+      ),
+    );
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
-      child: Image.file(
-        File(path),
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
-        // 文件缺失/不可读时静默回退到图片图标（离线、清理后、path 失效等场景）
-        errorBuilder: (context, error, stackTrace) => SizedBox(
+      child: InkWell(
+        onTap: () => Navigator.of(context, rootNavigator: true).push<void>(
+          MaterialPageRoute(
+            builder: (context) => AnnotatedRegion<SystemUiOverlayStyle>(
+              value: SystemUiOverlayStyle.light,
+              child: Scaffold(
+                backgroundColor: Colors.black,
+                body: CallbackShortcuts(
+                  bindings: {const SingleActivator(LogicalKeyboardKey.escape): () => Navigator.of(context).maybePop()},
+                  child: Focus(
+                    autofocus: true,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        InteractiveViewer(
+                          maxScale: 4,
+                          child: Image(
+                            image: ResizeImage(provider, width: 2048, height: 2048, policy: ResizeImagePolicy.fit),
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, _, _) => failed(color: Colors.white),
+                          ),
+                        ),
+                        SafeArea(
+                          child: Align(
+                            alignment: AlignmentDirectional.topStart,
+                            child: BackButton(
+                              style: IconButton.styleFrom(backgroundColor: Colors.black54, foregroundColor: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        child: Image(
+          image: ResizeImage.resizeIfNeeded(
+            (size * MediaQuery.devicePixelRatioOf(context)).round(),
+            null,
+            provider,
+          ),
           width: size,
           height: size,
-          child: Center(
-            child: Icon(Icons.broken_image_outlined, size: size, color: theme.colorScheme.outline),
-          ),
+          fit: BoxFit.contain,
+          // 文件缺失/不可读时静默回退到图片图标（离线、清理后、path 失效等场景）
+          errorBuilder: (context, error, stackTrace) => failed(),
         ),
       ),
     );

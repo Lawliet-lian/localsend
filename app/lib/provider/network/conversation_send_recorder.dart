@@ -66,6 +66,7 @@ class ConversationSendRecorder {
     required String sessionId,
     required Device target,
     required List<({String id, CrossFile file})> selectedFiles,
+    Map<String, String> previewPaths = const {},
     String? text,
   }) {
     if (!_isConversation(sessionId)) {
@@ -95,7 +96,7 @@ class ConversationSendRecorder {
                         fileType: file.fileType,
                         size: file.size,
                         outcome: ConversationFileOutcome.pending,
-                        path: null, // 发送侧没有保存路径
+                        path: file.fileType == FileType.image ? previewPaths[id] ?? file.path : null,
                         savedToGallery: false,
                         error: null,
                       ),
@@ -130,6 +131,9 @@ class ConversationSendRecorder {
       return;
     }
 
+    // Transfer status updates must preserve the preview source chosen at creation.
+    final previewPaths = {for (final file in entry.files) file.fileId: file.path};
+
     _ref
         .redux(conversationProvider)
         .dispatch(
@@ -138,7 +142,7 @@ class ConversationSendRecorder {
               outcome: outcome,
               // 终态盖时间戳；仍在进行中的阶段保持未结束
               finishedAt: outcome.isTerminal ? DateTime.now().toUtc() : null,
-              files: replaceFiles ?? entry.files,
+              files: replaceFiles?.map((file) => file.copyWith(path: previewPaths[file.fileId])).toList() ?? entry.files,
               error: error,
             ),
           ),
