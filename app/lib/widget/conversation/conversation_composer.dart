@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 
 /// 会话输入栏（P6c）：纯文字消息的草稿输入与发送。
@@ -73,6 +74,39 @@ class _ConversationComposerState extends State<ConversationComposer> {
     widget.onSend(text);
   }
 
+  void _onChanged(String text) {
+    if (text.isNotEmpty && _locked) {
+      setState(() => _locked = false);
+    }
+    widget.onChanged(text);
+  }
+
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if (event.logicalKey != LogicalKeyboardKey.enter && event.logicalKey != LogicalKeyboardKey.numpadEnter) {
+      return KeyEventResult.ignored;
+    }
+    final composing = _controller.value.composing;
+    if (composing.isValid && !composing.isCollapsed) return KeyEventResult.ignored;
+    if (event is KeyRepeatEvent) return KeyEventResult.handled;
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isControlPressed || keyboard.isAltPressed) return KeyEventResult.ignored;
+    if (keyboard.isShiftPressed || keyboard.isMetaPressed) {
+      final value = _controller.value;
+      final selection = value.selection.isValid ? value.selection : TextSelection.collapsed(offset: value.text.length);
+      final text = value.text.replaceRange(selection.start, selection.end, '\n');
+      _controller.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: selection.start + 1),
+      );
+      _onChanged(text);
+    } else {
+      _submit();
+    }
+    return KeyEventResult.handled;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -96,27 +130,25 @@ class _ConversationComposerState extends State<ConversationComposer> {
                   onPressed: widget.enabled && widget.attachmentEnabled ? widget.onPickAttachment : null,
                 ),
               Expanded(
-                child: TextField(
-                  controller: _controller,
-                  enabled: widget.enabled,
-                  // 多行输入：换行是消息内容的一部分，绝不因键盘行为丢失
-                  maxLines: 4,
-                  minLines: 1,
-                  textInputAction: TextInputAction.newline,
-                  decoration: InputDecoration(
-                    // 离线提示由详情顶栏统一展示，这里不重复文案；禁用态由输入框置灰表达
-                    hintText: t.conversation.composeHint,
-                    border: const OutlineInputBorder(borderSide: BorderSide.none),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    isDense: true,
+                child: Focus(
+                  canRequestFocus: false,
+                  onKeyEvent: _onKeyEvent,
+                  child: TextField(
+                    controller: _controller,
+                    enabled: widget.enabled,
+                    // 多行输入：换行是消息内容的一部分，绝不因键盘行为丢失
+                    maxLines: 4,
+                    minLines: 1,
+                    textInputAction: TextInputAction.newline,
+                    decoration: InputDecoration(
+                      // 离线提示由详情顶栏统一展示，这里不重复文案；禁用态由输入框置灰表达
+                      hintText: t.conversation.composeHint,
+                      border: const OutlineInputBorder(borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      isDense: true,
+                    ),
+                    onChanged: _onChanged,
                   ),
-                  onChanged: (text) {
-                    // 用户重新输入非空内容即解锁，允许下一次提交
-                    if (text.isNotEmpty && _locked) {
-                      setState(() => _locked = false);
-                    }
-                    widget.onChanged(text);
-                  },
                 ),
               ),
               IconButton(

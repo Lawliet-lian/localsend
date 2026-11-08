@@ -114,6 +114,7 @@ class ConversationSendRecorder {
     required ConversationOutcome outcome,
     List<ConversationFileSummary>? replaceFiles,
     String? error,
+    bool? encrypted,
   }) {
     if (!_isConversation(sessionId)) {
       return;
@@ -140,6 +141,7 @@ class ConversationSendRecorder {
           UpsertTransferSnapshotAction(
             entry.copyWith(
               outcome: outcome,
+              encrypted: encrypted ?? entry.encrypted,
               // 终态盖时间戳；仍在进行中的阶段保持未结束
               finishedAt: outcome.isTerminal ? DateTime.now().toUtc() : null,
               files: replaceFiles?.map((file) => file.copyWith(path: previewPaths[file.fileId])).toList() ?? entry.files,

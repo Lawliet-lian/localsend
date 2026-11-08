@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/widget/conversation/conversation_composer.dart';
@@ -31,6 +32,42 @@ void main() {
   }
 
   group('ConversationComposer', () {
+    testWidgets('Enter sends; Shift+Enter and Command+Enter insert a newline', (tester) async {
+      final sent = <String>[];
+      final changes = <String>[];
+      await pumpComposer(tester, enabled: true, onSend: sent.add, onChanged: changes.add);
+      await tester.enterText(find.byType(TextField), 'first');
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+      expect(changes.last, 'first\n\n');
+      expect(sent, isEmpty);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(sent, ['first\n\n']);
+      expect(changes.last, isEmpty);
+    });
+
+    testWidgets('Enter during IME composition does not send', (tester) async {
+      final sent = <String>[];
+      await pumpComposer(tester, enabled: true, onSend: sent.add);
+      await tester.showKeyboard(find.byType(TextField));
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'pin',
+          selection: TextSelection.collapsed(offset: 3),
+          composing: TextRange(start: 0, end: 3),
+        ),
+      );
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(sent, isEmpty);
+    });
     testWidgets('testShowsDraftInitialValue', (tester) async {
       await pumpComposer(tester, enabled: true, initialValue: 'draft text', onSend: (_) {});
 

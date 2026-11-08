@@ -16,6 +16,7 @@ import 'package:localsend_app/widget/custom_icon_button.dart';
 import 'package:localsend_app/widget/local_send_logo.dart';
 import 'package:localsend_app/widget/responsive_list_view.dart';
 import 'package:localsend_app/widget/rotating_widget.dart';
+import 'package:localsend_app/widget/transfer_security_label.dart';
 import 'package:localsend_isolates/util/sleep.dart';
 import 'package:refena_flutter/addons.dart';
 import 'package:refena_flutter/refena_flutter.dart';
@@ -86,6 +87,7 @@ class _ReceiveTabState extends State<ReceiveTab> {
                             },
                           ),
                         ),
+                        if (serverState != null && !serverState.webUpload) TransferSecurityLabel(encrypted: serverState.https, receiving: true),
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           child: Text(serverState?.alias ?? alias, style: const TextStyle(fontSize: 48)),

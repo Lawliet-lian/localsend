@@ -3,11 +3,13 @@ import 'package:localsend_app/util/device_type_ext.dart';
 import 'package:localsend_app/widget/custom_progress_bar.dart';
 import 'package:localsend_app/widget/device_bage.dart';
 import 'package:localsend_app/widget/list_tile/custom_list_tile.dart';
+import 'package:localsend_app/widget/transfer_security_label.dart';
 import 'package:localsend_isolates/model/device.dart';
 
 class DeviceListTile extends StatelessWidget {
   final Device device;
   final bool isFavorite;
+  final bool showSendSecurity;
 
   /// If not null, this name is used instead of [Device.alias].
   /// This is the case when the device is marked as favorite.
@@ -21,6 +23,7 @@ class DeviceListTile extends StatelessWidget {
   const DeviceListTile({
     required this.device,
     this.isFavorite = false,
+    this.showSendSecurity = true,
     this.nameOverride,
     this.info,
     this.progress,
@@ -61,13 +64,9 @@ class DeviceListTile extends StatelessWidget {
               child: CustomProgressBar(progress: progress!),
             )
           else ...[
-            if (device.ip != null)
-              DeviceBadge(
-                backgroundColor: badgeColor,
-                foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
-                label: 'HTTP',
-              )
-            else
+            if (device.ip != null && showSendSecurity)
+              TransferSecurityLabel(encrypted: device.https)
+            else if (device.ip == null)
               DeviceBadge(
                 backgroundColor: badgeColor,
                 foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,

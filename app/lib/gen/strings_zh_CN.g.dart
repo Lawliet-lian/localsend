@@ -146,6 +146,8 @@ class Translations$general$zh_CN extends Translations$general$en {
 
   // Translations
   @override
+  late final Translations$general$transferSecurity$zh_CN transferSecurity = Translations$general$transferSecurity$zh_CN.internal(_root);
+  @override
   String get accept => '接受';
   @override
   String get accepted => '已接受';
@@ -954,6 +956,25 @@ class Translations$conversation$outcome$zh_CN extends Translations$conversation$
   String get incomplete => '上次传输未完成';
 }
 
+// Path: general.transferSecurity
+class Translations$general$transferSecurity$zh_CN extends Translations$general$transferSecurity$en {
+  Translations$general$transferSecurity$zh_CN.internal(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get unknown => '加密状态未知';
+  @override
+  String get encryptedSend => '加密发送';
+  @override
+  String get plaintextSend => '明文发送';
+  @override
+  String get encryptedReceive => '加密接收';
+  @override
+  String get plaintextReceive => '明文接收';
+}
+
 // Path: receiveTab.infoBox
 class Translations$receiveTab$infoBox$zh_CN extends Translations$receiveTab$infoBox$en {
   Translations$receiveTab$infoBox$zh_CN.internal(TranslationsZhCn root) : this._root = root, super.internal(root);
@@ -1085,13 +1106,35 @@ class Translations$settingsTab$receive$zh_CN extends Translations$settingsTab$re
   @override
   String get title => '接收';
   @override
+  String get receiveConfirmation => '接收确认';
+  @override
+  String get confirmEveryRequest => '每次确认';
+  @override
+  String get acceptFavorites => '仅收藏设备免确认';
+  @override
+  String get acceptAllDevices => '所有设备免确认';
+  @override
+  String get receiveConfirmationHint => '文字和文件使用相同规则。所有设备包括陌生设备。';
+  @override
+  String get trustUnencryptedFavorites => '未加密时信任收藏设备自报指纹';
+  @override
+  String get trustUnencryptedWarning => '关闭加密后无法验证设备身份。其他设备可能冒充收藏设备，导致文字和文件被自动接收。';
+  @override
+  String get acceptRisk => '确认并承担风险';
+  @override
+  String get reviewReceiveSettings => '确认接收设置';
+  @override
+  String get reviewReceiveSettingsHint => '原自动保存设置仅适用于文件。请选择文字和文件的接收方式；选择前每次都需要确认。';
+  @override
+  String get chooseLater => '稍后选择';
+  @override
   String get quickSave => _root.general.quickSave;
   @override
   String get quickSaveFromFavorites => _root.general.quickSaveFromFavorites;
   @override
   String get requirePin => _root.webSharePage.requirePin;
   @override
-  String get autoFinish => '自动完成传输任务';
+  String get autoFinish => '传输完成后自动关闭进度页';
   @override
   String get destination => '保存目录';
   @override
@@ -1105,7 +1148,7 @@ class Translations$settingsTab$receive$zh_CN extends Translations$settingsTab$re
   @override
   String get conversationReceive => '在聊天界面显示收到的消息和文件';
   @override
-  String get conversationReceiveHint => '已收藏的设备将自动接收文件和消息；双方互相收藏后才能互相免确认发送。';
+  String get conversationReceiveHint => '新的设备接收请求显示在聊天界面。';
   @override
   String get clearConversationHistory => '清空全部会话记录';
 }
@@ -1162,6 +1205,8 @@ class Translations$settingsTab$network$zh_CN extends Translations$settingsTab$ne
   String portWarning({required Object defaultPort}) => '由于正在使用自定义端口，你可能不会被其他设备检测到。（默认端口：${defaultPort}）';
   @override
   String get encryption => '加密';
+  @override
+  String get encryptionScope => '此开关控制本机接收时是否加密。发送时使用对方设备的加密设置。';
   @override
   String get multicastGroup => '多播';
   @override

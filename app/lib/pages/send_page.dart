@@ -123,6 +123,7 @@ class _SendPageState extends State<SendPage> with Refena {
                             duration: const Duration(milliseconds: 400),
                             child: DeviceListTile(
                               device: myDevice,
+                              showSendSecurity: false,
                             ),
                           ),
                           const SizedBox(height: 20),

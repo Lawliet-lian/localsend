@@ -5,12 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:localsend_app/config/init.dart';
 import 'package:localsend_app/config/theme.dart';
 import 'package:localsend_app/gen/strings.g.dart';
+import 'package:localsend_app/model/persistence/quick_save_mode.dart';
 import 'package:localsend_app/pages/home_page_controller.dart';
 import 'package:localsend_app/pages/tabs/conversation_tab.dart';
 import 'package:localsend_app/pages/tabs/receive_tab.dart';
 import 'package:localsend_app/pages/tabs/send_tab.dart';
 import 'package:localsend_app/pages/tabs/settings_tab.dart';
+import 'package:localsend_app/provider/persistence_provider.dart';
 import 'package:localsend_app/provider/selection/selected_sending_files_provider.dart';
+import 'package:localsend_app/provider/settings_provider.dart';
 import 'package:localsend_app/util/native/cross_file_converters.dart';
 import 'package:localsend_app/widget/responsive_builder.dart';
 import 'package:refena_flutter/refena_flutter.dart';
@@ -68,6 +71,43 @@ class _HomePageState extends State<HomePage> with Refena {
     ensureRef((ref) async {
       ref.redux(homePageControllerProvider).dispatch(ChangeTabAction(widget.initialTab));
       await postInit(context, ref, widget.appStart);
+      if (widget.appStart && mounted && ref.read(persistenceProvider).needsReceiveConfirmationMigration()) {
+        final previous = ref.read(persistenceProvider).getQuickSave();
+        var selected = previous;
+        final mode = await showDialog<QuickSaveMode>(
+          context: context,
+          builder: (dialogContext) => StatefulBuilder(
+            builder: (context, setDialogState) => AlertDialog(
+              title: Text(t.settingsTab.receive.reviewReceiveSettings),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(t.settingsTab.receive.reviewReceiveSettingsHint),
+                    RadioGroup<QuickSaveMode>(
+                      groupValue: selected,
+                      onChanged: (value) => setDialogState(() => selected = value ?? selected),
+                      child: Column(
+                        children: [
+                          RadioListTile<QuickSaveMode>(value: QuickSaveMode.off, title: Text(t.settingsTab.receive.confirmEveryRequest)),
+                          RadioListTile<QuickSaveMode>(value: QuickSaveMode.paired, title: Text(t.settingsTab.receive.acceptFavorites)),
+                          RadioListTile<QuickSaveMode>(value: QuickSaveMode.on, title: Text(t.settingsTab.receive.acceptAllDevices)),
+                        ],
+                      ),
+                    ),
+                    Text(t.settingsTab.receive.receiveConfirmationHint),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(t.settingsTab.receive.chooseLater)),
+                TextButton(onPressed: () => Navigator.pop(dialogContext, selected), child: Text(t.general.confirm)),
+              ],
+            ),
+          ),
+        );
+        if (mode != null) await ref.notifier(settingsProvider).setReceiveConfirmation(mode);
+      }
     });
   }
 

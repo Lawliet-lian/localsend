@@ -65,6 +65,7 @@ class ConversationReceiveRecorder {
                       ),
                   ],
             text: message,
+            encrypted: session.encrypted,
             initialOutcome: ConversationOutcome.waiting,
           ),
         );

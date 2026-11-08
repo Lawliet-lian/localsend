@@ -150,6 +150,9 @@ class ConversationEntry with ConversationEntryMappable {
 
   final ConversationOutcome outcome;
 
+  /// Transport security for this transfer; null means unavailable or not confirmed.
+  final bool? encrypted;
+
   /// 创建时间（UTC）。
   final DateTime createdAt;
 
@@ -172,6 +175,7 @@ class ConversationEntry with ConversationEntryMappable {
     required this.localSessionId,
     required this.kind,
     required this.outcome,
+    this.encrypted,
     required this.createdAt,
     required this.finishedAt,
     required this.files,

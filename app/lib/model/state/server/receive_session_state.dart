@@ -21,6 +21,9 @@ class ReceiveSessionState with ReceiveSessionStateMappable implements SessionSta
 
   final Device sender;
 
+  /// Transport used for this request, independent of the sender's listening protocol.
+  final bool? encrypted;
+
   // Might not be the same as sender.alias since it can be overridden as a favorite
   final String senderAlias;
 
@@ -45,6 +48,7 @@ class ReceiveSessionState with ReceiveSessionStateMappable implements SessionSta
     required this.sessionId,
     required this.status,
     required this.sender,
+    this.encrypted,
     required this.senderAlias,
     required this.files,
     required this.startTime,

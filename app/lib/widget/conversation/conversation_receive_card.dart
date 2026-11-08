@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:localsend_app/config/theme.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/conversation/conversation_receive_card_vm.dart';
+import 'package:localsend_app/widget/transfer_security_label.dart';
 import 'package:localsend_isolates/model/file_type.dart';
 import 'package:localsend_isolates/util/file_size_helper.dart';
 
@@ -83,6 +84,7 @@ class _ConversationReceiveCardState extends State<ConversationReceiveCard> {
                 ),
               ],
             ),
+            if (vm.session.encrypted case final encrypted?) TransferSecurityLabel(encrypted: encrypted, receiving: true),
             const SizedBox(height: 6),
             // 文件列表：最多显示 4 行，超出折叠为"+n 更多"（第一版不做展开页）
             ...vm.session.files.values.take(4).map((f) => _fileRow(f.file.id, f.file.fileName, f.file.size, f.file.fileType)),
@@ -127,6 +129,7 @@ class _ConversationReceiveCardState extends State<ConversationReceiveCard> {
                 ),
               ],
             ),
+            if (widget.vm.session.encrypted case final encrypted?) TransferSecurityLabel(encrypted: encrypted, receiving: true),
             const SizedBox(height: 6),
             Container(
               constraints: const BoxConstraints(maxHeight: 160),

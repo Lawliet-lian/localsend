@@ -359,10 +359,14 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
             pin: pin,
             cancelToken: prepareUploadCancelToken,
           );
+          if (state[sessionId]?.status == SessionStatus.waiting) {
+            _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.waiting, encrypted: target.https);
+          }
         } on rust_http.RsHttpClientError_StatusCode catch (e) {
           if (state[sessionId]?.status != SessionStatus.waiting) {
             return;
           }
+          _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.waiting, encrypted: target.https);
           switch (e.status) {
             case 401:
               invalidPin = true;

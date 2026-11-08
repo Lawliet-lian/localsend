@@ -144,6 +144,7 @@ void main() {
       const galleryUri = 'content://media/external/images/media/42';
       markConversation();
       recorder.onSessionCreated(sessionId: sessionId, target: target(), selectedFiles: selectedFiles(), previewPaths: {'f2': galleryUri});
+      recorder.update(sessionId: sessionId, outcome: ConversationOutcome.waiting, encrypted: true);
       final files = {
         'f2': sendingFile('f2', token: 't', type: FileType.image, path: '/tmp/staged-image'),
       };
@@ -153,6 +154,7 @@ void main() {
 
       final snapshot = ConversationEntryMapper.deserialize(entry()!.serialize());
       expect(snapshot.files.single.path, galleryUri);
+      expect(snapshot.encrypted, isTrue);
     });
 
     test('an empty attachment acceptance records skipped files and survives serialization', () {

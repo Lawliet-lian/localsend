@@ -217,6 +217,7 @@ class EnsureTransferEntryAction extends ReduxAction<ConversationService, Convers
   final ConversationEntryKind kind;
   final List<ConversationFileSummary> files;
   final String? text;
+  final bool? encrypted;
 
   /// 初始结果默认 preparing；文字类可在登记时直接给 waiting 等更准确的阶段。
   final ConversationOutcome initialOutcome;
@@ -228,6 +229,7 @@ class EnsureTransferEntryAction extends ReduxAction<ConversationService, Convers
     required this.kind,
     this.files = const [],
     this.text,
+    this.encrypted,
     this.initialOutcome = ConversationOutcome.preparing,
   });
 
@@ -267,6 +269,7 @@ class EnsureTransferEntryAction extends ReduxAction<ConversationService, Convers
           localSessionId: localSessionId,
           kind: kind,
           outcome: initialOutcome,
+          encrypted: encrypted,
           createdAt: DateTime.now().toUtc(),
           finishedAt: null,
           files: files,
@@ -370,7 +373,8 @@ class ClearPeerEntriesAction extends ReduxAction<ConversationService, Conversati
     }
     final entries = state.entries.where((e) => e.peerKey != peerKey).toList();
     final cleared = {...state.clearedEntryIds, ...removed};
-    for (final id in removed) { // 被清记录的拉黑标记一并移除（P9a-2 语义 ④）
+    for (final id in removed) {
+      // 被清记录的拉黑标记一并移除（P9a-2 语义 ④）
       notifier.forgetNewEntryGuard(id);
     }
     return ConversationState(peers: state.peers, entries: entries, clearedEntryIds: cleared);

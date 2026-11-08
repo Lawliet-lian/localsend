@@ -435,6 +435,7 @@ void main() {
       sessionId: 'session-r1',
       status: SessionStatus.waiting,
       sender: onlineDevice().copyWith(fingerprint: fingerprint),
+      encrypted: false,
       senderAlias: 'Nick',
       files: {
         'f1': ReceivingFile(
@@ -481,6 +482,9 @@ void main() {
     // 卡片只属于对端设备：peerKey 匹配走真实逻辑（fp:aa:bb ↔ 指纹 AA:BB）
     expect(find.byType(ConversationReceiveCard), findsOneWidget);
     expect(find.text(t.conversation.receiveCard.title(name: 'Nick')), findsOneWidget);
+    // The peer accepts encrypted sends, while this incoming transfer used HTTP.
+    expect(find.text(t.general.transferSecurity.encryptedSend), findsOneWidget);
+    expect(find.text(t.general.transferSecurity.plaintextReceive), findsOneWidget);
 
     // 真实 ServerService 的 declineFileRequest：state 为 null 时首行 guard 直接 return（安全 no-op）；
     // 本点击验证的是接线可达性——按钮存在且可点击不抛异常

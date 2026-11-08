@@ -132,6 +132,7 @@ class Translations$general$en {
   final Translations _root; // ignore: unused_field
 
   // Translations
+  late final Translations$general$transferSecurity$en transferSecurity = Translations$general$transferSecurity$en.internal(_root);
 
   /// en: 'Accept'
   String get accept => 'Accept';
@@ -1091,6 +1092,30 @@ class Translations$conversation$outcome$en {
   String get incomplete => 'Last transfer did not complete';
 }
 
+// Path: general.transferSecurity
+class Translations$general$transferSecurity$en {
+  Translations$general$transferSecurity$en.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// en: 'Security status unknown'
+  String get unknown => 'Security status unknown';
+
+  /// en: 'Encrypted send'
+  String get encryptedSend => 'Encrypted send';
+
+  /// en: 'Unencrypted send'
+  String get plaintextSend => 'Unencrypted send';
+
+  /// en: 'Encrypted receive'
+  String get encryptedReceive => 'Encrypted receive';
+
+  /// en: 'Unencrypted receive'
+  String get plaintextReceive => 'Unencrypted receive';
+}
+
 // Path: receiveTab.infoBox
 class Translations$receiveTab$infoBox$en {
   Translations$receiveTab$infoBox$en.internal(this._root);
@@ -1259,6 +1284,41 @@ class Translations$settingsTab$receive$en {
   /// en: 'Receive'
   String get title => 'Receive';
 
+  /// en: 'Receive confirmation'
+  String get receiveConfirmation => 'Receive confirmation';
+
+  /// en: 'Confirm every request'
+  String get confirmEveryRequest => 'Confirm every request';
+
+  /// en: 'Favorites only'
+  String get acceptFavorites => 'Favorites only';
+
+  /// en: 'All devices'
+  String get acceptAllDevices => 'All devices';
+
+  /// en: 'Messages and files follow the same rule. All devices includes unknown senders.'
+  String get receiveConfirmationHint => 'Messages and files follow the same rule. All devices includes unknown senders.';
+
+  /// en: 'Trust favorite fingerprints without encryption'
+  String get trustUnencryptedFavorites => 'Trust favorite fingerprints without encryption';
+
+  /// en: 'Identity cannot be verified without encryption. Another device could impersonate a favorite and send messages and files automatically.'
+  String get trustUnencryptedWarning =>
+      'Identity cannot be verified without encryption. Another device could impersonate a favorite and send messages and files automatically.';
+
+  /// en: 'Accept the risk'
+  String get acceptRisk => 'Accept the risk';
+
+  /// en: 'Review receive settings'
+  String get reviewReceiveSettings => 'Review receive settings';
+
+  /// en: 'Your previous automatic file setting does not cover messages. Choose how to receive both. Until you choose, each request requires confirmation.'
+  String get reviewReceiveSettingsHint =>
+      'Your previous automatic file setting does not cover messages. Choose how to receive both. Until you choose, each request requires confirmation.';
+
+  /// en: 'Choose later'
+  String get chooseLater => 'Choose later';
+
   /// en: 'Quick Save'
   String get quickSave => _root.general.quickSave;
 
@@ -1268,8 +1328,8 @@ class Translations$settingsTab$receive$en {
   /// en: 'Require PIN'
   String get requirePin => _root.webSharePage.requirePin;
 
-  /// en: 'Auto Finish'
-  String get autoFinish => 'Auto Finish';
+  /// en: 'Close progress page after transfer'
+  String get autoFinish => 'Close progress page after transfer';
 
   /// en: 'Save to folder'
   String get destination => 'Save to folder';
@@ -1289,9 +1349,8 @@ class Translations$settingsTab$receive$en {
   /// en: 'Show incoming messages and files in the chat view'
   String get conversationReceive => 'Show incoming messages and files in the chat view';
 
-  /// en: 'Favorited devices are accepted automatically (files and messages). Both sides must favorite each other for barrier-free sending.'
-  String get conversationReceiveHint =>
-      'Favorited devices are accepted automatically (files and messages). Both sides must favorite each other for barrier-free sending.';
+  /// en: 'New device transfers appear in the chat view.'
+  String get conversationReceiveHint => 'New device transfers appear in the chat view.';
 
   /// en: 'Clear all conversation history'
   String get clearConversationHistory => 'Clear all conversation history';
@@ -1364,6 +1423,9 @@ class Translations$settingsTab$network$en {
 
   /// en: 'Encryption'
   String get encryption => 'Encryption';
+
+  /// en: 'This controls incoming transfers. Outgoing transfers use the receiving device’s encryption setting.'
+  String get encryptionScope => 'This controls incoming transfers. Outgoing transfers use the receiving device’s encryption setting.';
 
   /// en: 'Multicast address'
   String get multicastGroup => 'Multicast address';

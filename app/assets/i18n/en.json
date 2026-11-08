@@ -42,6 +42,13 @@
     }
   },
   "general": {
+    "transferSecurity": {
+      "unknown": "Security status unknown",
+      "encryptedSend": "Encrypted send",
+      "plaintextSend": "Unencrypted send",
+      "encryptedReceive": "Encrypted receive",
+      "plaintextReceive": "Unencrypted receive"
+    },
     "accept": "Accept",
     "accepted": "Accepted",
     "add": "Add",
@@ -157,17 +164,28 @@
     },
     "receive": {
       "title": "Receive",
+      "receiveConfirmation": "Receive confirmation",
+      "confirmEveryRequest": "Confirm every request",
+      "acceptFavorites": "Favorites only",
+      "acceptAllDevices": "All devices",
+      "receiveConfirmationHint": "Messages and files follow the same rule. All devices includes unknown senders.",
+      "trustUnencryptedFavorites": "Trust favorite fingerprints without encryption",
+      "trustUnencryptedWarning": "Identity cannot be verified without encryption. Another device could impersonate a favorite and send messages and files automatically.",
+      "acceptRisk": "Accept the risk",
+      "reviewReceiveSettings": "Review receive settings",
+      "reviewReceiveSettingsHint": "Your previous automatic file setting does not cover messages. Choose how to receive both. Until you choose, each request requires confirmation.",
+      "chooseLater": "Choose later",
       "quickSave": "@:general.quickSave",
       "quickSaveFromFavorites": "@:general.quickSaveFromFavorites",
       "requirePin": "@:webSharePage.requirePin",
-      "autoFinish": "Auto Finish",
+      "autoFinish": "Close progress page after transfer",
       "destination": "Save to folder",
       "downloads": "(Downloads)",
       "saveToGallery": "Save media to gallery",
       "saveToHistory": "Save to history",
       "verifyChecksums": "Verify checksums when receiving files",
       "conversationReceive": "Show incoming messages and files in the chat view",
-      "conversationReceiveHint": "Favorited devices are accepted automatically (files and messages). Both sides must favorite each other for barrier-free sending.",
+      "conversationReceiveHint": "New device transfers appear in the chat view.",
       "clearConversationHistory": "Clear all conversation history"
     },
     "send": {
@@ -193,6 +211,7 @@
       "generateRandomAlias": "Generate random alias",
       "portWarning": "You might not be detected by other devices because you are using a custom port. (default: {defaultPort})",
       "encryption": "Encryption",
+      "encryptionScope": "This controls incoming transfers. Outgoing transfers use the receiving device’s encryption setting.",
       "multicastGroup": "Multicast address",
       "multicastGroupWarning": "You might not be detected by other devices because you are using a custom multicast address. (default: {defaultMulticast})"
     },

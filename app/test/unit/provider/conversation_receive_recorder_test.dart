@@ -137,7 +137,7 @@ void main() {
         session: session({
           'f1': receivingFile('f1'),
           'f2': receivingFile('f2', fileType: FileType.text),
-        }),
+        }).copyWith(encrypted: false),
       );
 
       final e = entry()!;
@@ -148,6 +148,7 @@ void main() {
       expect(e.kind, ConversationEntryKind.file);
       // 接收侧没有校验和阶段：请求一到即 waiting
       expect(e.outcome, ConversationOutcome.waiting);
+      expect(e.encrypted, isFalse);
       expect(e.finishedAt, isNull);
       expect(e.files.map((f) => f.fileId), ['f1', 'f2']);
       expect(e.files.every((f) => f.outcome == ConversationFileOutcome.pending), isTrue);

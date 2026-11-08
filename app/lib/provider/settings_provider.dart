@@ -63,6 +63,9 @@ class SettingsService extends PureNotifier<SettingsState> {
     saveToHistory: _persistence.isSaveToHistory(),
     quickSave: _persistence.getQuickSave() == QuickSaveMode.on,
     quickSaveFromFavorites: _persistence.getQuickSave() == QuickSaveMode.paired,
+    receiveAutoAll: _persistence.getReceiveConfirmation() == QuickSaveMode.on,
+    receiveAutoFavorites: _persistence.getReceiveConfirmation() == QuickSaveMode.paired,
+    trustUnencryptedFavorites: _persistence.getTrustUnencryptedFavorites(),
     receivePin: _persistence.getReceivePin(),
     autoFinish: _persistence.isAutoFinish(),
     minimizeToTray: _persistence.isMinimizeToTray(),
@@ -189,6 +192,16 @@ class SettingsService extends PureNotifier<SettingsState> {
       mode = old == QuickSaveMode.on ? QuickSaveMode.off : old;
     }
     await _setQuickSaveMode(mode);
+  }
+
+  Future<void> setReceiveConfirmation(QuickSaveMode mode) async {
+    await _persistence.setReceiveConfirmation(mode);
+    state = state.copyWith(receiveAutoAll: mode == QuickSaveMode.on, receiveAutoFavorites: mode == QuickSaveMode.paired);
+  }
+
+  Future<void> setTrustUnencryptedFavorites(bool value) async {
+    await _persistence.setTrustUnencryptedFavorites(value);
+    state = state.copyWith(trustUnencryptedFavorites: value);
   }
 
   Future<void> setQuickSaveFromFavorites(bool quickSaveFromFavorites) async {

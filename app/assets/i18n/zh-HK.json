@@ -42,6 +42,13 @@
     }
   },
   "general": {
+    "transferSecurity": {
+      "unknown": "加密狀態不明",
+      "encryptedSend": "加密傳送",
+      "plaintextSend": "明文傳送",
+      "encryptedReceive": "加密接收",
+      "plaintextReceive": "明文接收"
+    },
     "accept": "接受",
     "accepted": "已接受",
     "add": "新增",
@@ -155,17 +162,28 @@
     },
     "receive": {
       "title": "接收",
+      "receiveConfirmation": "接收確認",
+      "confirmEveryRequest": "每次確認",
+      "acceptFavorites": "只對收藏裝置免確認",
+      "acceptAllDevices": "所有裝置免確認",
+      "receiveConfirmationHint": "文字同檔案使用相同規則。所有裝置包括陌生裝置。",
+      "trustUnencryptedFavorites": "未加密時信任收藏裝置自報指紋",
+      "trustUnencryptedWarning": "關閉加密後無法驗證裝置身份。其他裝置可能冒充收藏裝置，令文字同檔案被自動接收。",
+      "acceptRisk": "確認並承擔風險",
+      "reviewReceiveSettings": "確認接收設定",
+      "reviewReceiveSettingsHint": "原有自動儲存設定只適用於檔案。請選擇文字同檔案嘅接收方式；選擇前每次都需要確認。",
+      "chooseLater": "稍後選擇",
       "quickSave": "@:general.quickSave",
       "quickSaveFromFavorites": "@:general.quickSaveFromFavorites",
       "requirePin": "@:webSharePage.requirePin",
-      "autoFinish": "完成後自動關閉傳輸畫面",
+      "autoFinish": "傳輸完成後自動關閉進度頁",
       "destination": "儲存位置",
       "downloads": "（下載資料夾）",
       "saveToGallery": "Save 落相簿",
       "saveToHistory": "Save 去歷史紀錄",
       "verifyChecksums": "接收檔案嗰陣驗證 checksum",
       "conversationReceive": "喺聊天介面顯示收到嘅訊息同檔案",
-      "conversationReceiveHint": "已收藏嘅裝置會自動接收檔案同訊息；雙方互相收藏先可以互相免確認傳送。",
+      "conversationReceiveHint": "新嘅裝置接收請求顯示喺聊天介面。",
       "clearConversationHistory": "清空全部對話記錄"
     },
     "send": {
@@ -192,6 +210,7 @@
       "generateRandomAlias": "求其改個名",
       "portWarning": "改 port 嘅話其他裝置有機會偵測唔到你。（預設：{defaultPort}）",
       "encryption": "加密傳送",
+      "encryptionScope": "呢個開關控制本機接收時係咪加密。傳送時會用對方裝置嘅加密設定。",
       "multicastGroup": "多播 IP 地址",
       "multicastGroupWarning": "用自訂多播地址嘅話其他裝置有機會偵測唔到你。（預設：{defaultMulticast}）"
     },

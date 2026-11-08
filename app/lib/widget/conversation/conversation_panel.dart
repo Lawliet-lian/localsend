@@ -9,6 +9,7 @@ import 'package:localsend_app/widget/conversation/conversation_entry_tile.dart';
 import 'package:localsend_app/widget/conversation/conversation_list.dart';
 import 'package:localsend_app/widget/conversation/conversation_receive_card.dart';
 import 'package:localsend_app/widget/responsive_builder.dart';
+import 'package:localsend_app/widget/transfer_security_label.dart';
 
 /// 会话面板：设备列表 + 会话详情的响应式组合（方案 6.1）。
 ///
@@ -246,6 +247,7 @@ class _ConversationDetail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final device = view.device;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -327,6 +329,11 @@ class _ConversationDetail extends StatelessWidget {
         // 输入栏（P6c）：离线设备禁用发送但保留草稿（方案 6.2：离线仍可查看历史、禁发送）；
         // key 按 peerKey 重建，切设备不串输入；
         // P9b：选择器打开期间（sendingLocked）同样禁用发送，草稿不受影响
+        if (view.online && device?.ip != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TransferSecurityLabel(encrypted: device!.https),
+          ),
         ConversationComposer(
           key: ValueKey(view.peerKey),
           initialValue: draftText,

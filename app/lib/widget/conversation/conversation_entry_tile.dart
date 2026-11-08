@@ -8,6 +8,7 @@ import 'package:localsend_app/util/native/open_folder.dart';
 import 'package:localsend_app/util/native/platform_check.dart';
 import 'package:localsend_app/widget/conversation/conversation_file_tile.dart';
 import 'package:localsend_app/widget/dialogs/cannot_open_file_dialog.dart';
+import 'package:localsend_app/widget/transfer_security_label.dart';
 import 'package:localsend_isolates/model/file_type.dart';
 import 'package:path/path.dart' as p;
 
@@ -58,6 +59,7 @@ class _ConversationEntryTileState extends State<ConversationEntryTile> {
             _formatTime(entry.createdAt),
             style: theme.textTheme.labelSmall?.copyWith(color: textColor.withValues(alpha: 0.7)),
           ),
+          TransferSecurityLabel(encrypted: entry.encrypted, receiving: !isSend, showLabel: false),
         ],
       ),
       const SizedBox(height: 4),

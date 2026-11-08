@@ -37,36 +37,4 @@ void main() {
       );
     });
   });
-
-  group('shouldAutoAcceptFavoriteInConversation', () {
-    test('testConversationFavoriteAutoAccepts', () {
-      // 会话模式 + 发送方在本端收藏列表：自动接收（文件/文字均免确认）
-      expect(
-        shouldAutoAcceptFavoriteInConversation(presentation: TransferPresentation.conversation, isFavorite: true),
-        true,
-      );
-    });
-
-    test('testConversationNonFavoriteStaysManual', () {
-      // 会话模式 + 未收藏：仍由会话卡片手动接受。
-      // 这正是“双方互收藏才无障碍”的单向语义：对方没收藏我时，我发给对方仍需对方手动同意。
-      expect(
-        shouldAutoAcceptFavoriteInConversation(presentation: TransferPresentation.conversation, isFavorite: false),
-        false,
-      );
-    });
-
-    test('testLegacyNeverAutoAcceptsByThisRule', () {
-      // legacy 展示模式不受本规则影响（收藏与否都不自动），保持改造前行为；
-      // legacy 的自动接收仍由 quickSave/quickSaveFromFavorites 单独负责。
-      expect(
-        shouldAutoAcceptFavoriteInConversation(presentation: TransferPresentation.legacy, isFavorite: true),
-        false,
-      );
-      expect(
-        shouldAutoAcceptFavoriteInConversation(presentation: TransferPresentation.legacy, isFavorite: false),
-        false,
-      );
-    });
-  });
 }

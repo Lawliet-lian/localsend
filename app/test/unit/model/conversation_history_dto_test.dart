@@ -42,6 +42,13 @@ void main() {
   }
 
   group('ConversationHistoryDto.decodeFromString 容错', () {
+    test('old entries keep unknown security and new entries retain the actual protocol', () {
+      final old = entry('old').toJson()..remove('encrypted');
+      final secure = entry('secure').copyWith(encrypted: true).toJson();
+      final plaintext = entry('plaintext').copyWith(encrypted: false).toJson();
+      final restored = ConversationHistoryDto.decodeFromString(encodeEnvelope(entries: [old, secure, plaintext]));
+      expect(restored.entries.map((entry) => entry.encrypted), [null, true, false]);
+    });
     test('raw 为 null：返回空信封（不抛异常）', () {
       final dto = ConversationHistoryDto.decodeFromString(null);
       expect(dto.entries, isEmpty);

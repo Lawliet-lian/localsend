@@ -95,6 +95,22 @@ class SettingsStateMapper extends ClassMapperBase<SettingsState> {
     'quickSaveFromFavorites',
     _$quickSaveFromFavorites,
   );
+  static bool _$receiveAutoAll(SettingsState v) => v.receiveAutoAll;
+  static const Field<SettingsState, bool> _f$receiveAutoAll = Field(
+    'receiveAutoAll',
+    _$receiveAutoAll,
+  );
+  static bool _$receiveAutoFavorites(SettingsState v) => v.receiveAutoFavorites;
+  static const Field<SettingsState, bool> _f$receiveAutoFavorites = Field(
+    'receiveAutoFavorites',
+    _$receiveAutoFavorites,
+  );
+  static bool _$trustUnencryptedFavorites(SettingsState v) =>
+      v.trustUnencryptedFavorites;
+  static const Field<SettingsState, bool> _f$trustUnencryptedFavorites = Field(
+    'trustUnencryptedFavorites',
+    _$trustUnencryptedFavorites,
+  );
   static String? _$receivePin(SettingsState v) => v.receivePin;
   static const Field<SettingsState, String> _f$receivePin = Field(
     'receivePin',
@@ -198,6 +214,9 @@ class SettingsStateMapper extends ClassMapperBase<SettingsState> {
     #saveToHistory: _f$saveToHistory,
     #quickSave: _f$quickSave,
     #quickSaveFromFavorites: _f$quickSaveFromFavorites,
+    #receiveAutoAll: _f$receiveAutoAll,
+    #receiveAutoFavorites: _f$receiveAutoFavorites,
+    #trustUnencryptedFavorites: _f$trustUnencryptedFavorites,
     #receivePin: _f$receivePin,
     #autoFinish: _f$autoFinish,
     #minimizeToTray: _f$minimizeToTray,
@@ -234,6 +253,9 @@ class SettingsStateMapper extends ClassMapperBase<SettingsState> {
       saveToHistory: data.dec(_f$saveToHistory),
       quickSave: data.dec(_f$quickSave),
       quickSaveFromFavorites: data.dec(_f$quickSaveFromFavorites),
+      receiveAutoAll: data.dec(_f$receiveAutoAll),
+      receiveAutoFavorites: data.dec(_f$receiveAutoFavorites),
+      trustUnencryptedFavorites: data.dec(_f$trustUnencryptedFavorites),
       receivePin: data.dec(_f$receivePin),
       autoFinish: data.dec(_f$autoFinish),
       minimizeToTray: data.dec(_f$minimizeToTray),
@@ -336,6 +358,9 @@ abstract class SettingsStateCopyWith<$R, $In extends SettingsState, $Out>
     bool? saveToHistory,
     bool? quickSave,
     bool? quickSaveFromFavorites,
+    bool? receiveAutoAll,
+    bool? receiveAutoFavorites,
+    bool? trustUnencryptedFavorites,
     String? receivePin,
     bool? autoFinish,
     bool? minimizeToTray,
@@ -400,6 +425,9 @@ class _SettingsStateCopyWithImpl<$R, $Out>
     bool? saveToHistory,
     bool? quickSave,
     bool? quickSaveFromFavorites,
+    bool? receiveAutoAll,
+    bool? receiveAutoFavorites,
+    bool? trustUnencryptedFavorites,
     Object? receivePin = $none,
     bool? autoFinish,
     bool? minimizeToTray,
@@ -435,6 +463,11 @@ class _SettingsStateCopyWithImpl<$R, $Out>
       if (quickSave != null) #quickSave: quickSave,
       if (quickSaveFromFavorites != null)
         #quickSaveFromFavorites: quickSaveFromFavorites,
+      if (receiveAutoAll != null) #receiveAutoAll: receiveAutoAll,
+      if (receiveAutoFavorites != null)
+        #receiveAutoFavorites: receiveAutoFavorites,
+      if (trustUnencryptedFavorites != null)
+        #trustUnencryptedFavorites: trustUnencryptedFavorites,
       if (receivePin != $none) #receivePin: receivePin,
       if (autoFinish != null) #autoFinish: autoFinish,
       if (minimizeToTray != null) #minimizeToTray: minimizeToTray,
@@ -477,6 +510,15 @@ class _SettingsStateCopyWithImpl<$R, $Out>
     quickSaveFromFavorites: data.get(
       #quickSaveFromFavorites,
       or: $value.quickSaveFromFavorites,
+    ),
+    receiveAutoAll: data.get(#receiveAutoAll, or: $value.receiveAutoAll),
+    receiveAutoFavorites: data.get(
+      #receiveAutoFavorites,
+      or: $value.receiveAutoFavorites,
+    ),
+    trustUnencryptedFavorites: data.get(
+      #trustUnencryptedFavorites,
+      or: $value.trustUnencryptedFavorites,
     ),
     receivePin: data.get(#receivePin, or: $value.receivePin),
     autoFinish: data.get(#autoFinish, or: $value.autoFinish),

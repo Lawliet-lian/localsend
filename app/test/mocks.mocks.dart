@@ -541,6 +541,51 @@ class MockPersistenceService extends _i1.Mock
           as _i13.QuickSaveMode);
 
   @override
+  _i13.QuickSaveMode getReceiveConfirmation() =>
+      (super.noSuchMethod(
+            Invocation.method(#getReceiveConfirmation, []),
+            returnValue: _i13.QuickSaveMode.off,
+            returnValueForMissingStub: _i13.QuickSaveMode.off,
+          )
+          as _i13.QuickSaveMode);
+
+  @override
+  bool needsReceiveConfirmationMigration() =>
+      (super.noSuchMethod(
+            Invocation.method(#needsReceiveConfirmationMigration, []),
+            returnValue: false,
+            returnValueForMissingStub: false,
+          )
+          as bool);
+
+  @override
+  _i6.Future<void> setReceiveConfirmation(_i13.QuickSaveMode? mode) =>
+      (super.noSuchMethod(
+            Invocation.method(#setReceiveConfirmation, [mode]),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
+
+  @override
+  bool getTrustUnencryptedFavorites() =>
+      (super.noSuchMethod(
+            Invocation.method(#getTrustUnencryptedFavorites, []),
+            returnValue: false,
+            returnValueForMissingStub: false,
+          )
+          as bool);
+
+  @override
+  _i6.Future<void> setTrustUnencryptedFavorites(bool? value) =>
+      (super.noSuchMethod(
+            Invocation.method(#setTrustUnencryptedFavorites, [value]),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
+
+  @override
   _i6.Future<void> setQuickSave(_i13.QuickSaveMode? mode) =>
       (super.noSuchMethod(
             Invocation.method(#setQuickSave, [mode]),

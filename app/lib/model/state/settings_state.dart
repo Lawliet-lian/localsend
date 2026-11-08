@@ -24,6 +24,9 @@ class SettingsState with SettingsStateMappable {
   final bool saveToHistory;
   final bool quickSave; // automatically accept file requests
   final bool quickSaveFromFavorites; // automatically accept file requests from favorites
+  final bool receiveAutoAll;
+  final bool receiveAutoFavorites;
+  final bool trustUnencryptedFavorites;
   final String? receivePin; // null = disabled
   final bool autoFinish; // automatically finish sessions
   final bool minimizeToTray; // minimize to tray instead of exiting the app
@@ -59,6 +62,9 @@ class SettingsState with SettingsStateMappable {
     required this.saveToHistory,
     required this.quickSave,
     required this.quickSaveFromFavorites,
+    required this.receiveAutoAll,
+    required this.receiveAutoFavorites,
+    required this.trustUnencryptedFavorites,
     required this.receivePin,
     required this.autoFinish,
     required this.minimizeToTray,

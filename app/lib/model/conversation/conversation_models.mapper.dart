@@ -458,6 +458,12 @@ class ConversationEntryMapper extends ClassMapperBase<ConversationEntry> {
     'outcome',
     _$outcome,
   );
+  static bool? _$encrypted(ConversationEntry v) => v.encrypted;
+  static const Field<ConversationEntry, bool> _f$encrypted = Field(
+    'encrypted',
+    _$encrypted,
+    opt: true,
+  );
   static DateTime _$createdAt(ConversationEntry v) => v.createdAt;
   static const Field<ConversationEntry, DateTime> _f$createdAt = Field(
     'createdAt',
@@ -487,6 +493,7 @@ class ConversationEntryMapper extends ClassMapperBase<ConversationEntry> {
     #localSessionId: _f$localSessionId,
     #kind: _f$kind,
     #outcome: _f$outcome,
+    #encrypted: _f$encrypted,
     #createdAt: _f$createdAt,
     #finishedAt: _f$finishedAt,
     #files: _f$files,
@@ -502,6 +509,7 @@ class ConversationEntryMapper extends ClassMapperBase<ConversationEntry> {
       localSessionId: data.dec(_f$localSessionId),
       kind: data.dec(_f$kind),
       outcome: data.dec(_f$outcome),
+      encrypted: data.dec(_f$encrypted),
       createdAt: data.dec(_f$createdAt),
       finishedAt: data.dec(_f$finishedAt),
       files: data.dec(_f$files),
@@ -598,6 +606,7 @@ abstract class ConversationEntryCopyWith<
     String? localSessionId,
     ConversationEntryKind? kind,
     ConversationOutcome? outcome,
+    bool? encrypted,
     DateTime? createdAt,
     DateTime? finishedAt,
     List<ConversationFileSummary>? files,
@@ -640,6 +649,7 @@ class _ConversationEntryCopyWithImpl<$R, $Out>
     String? localSessionId,
     ConversationEntryKind? kind,
     ConversationOutcome? outcome,
+    Object? encrypted = $none,
     DateTime? createdAt,
     Object? finishedAt = $none,
     List<ConversationFileSummary>? files,
@@ -653,6 +663,7 @@ class _ConversationEntryCopyWithImpl<$R, $Out>
       if (localSessionId != null) #localSessionId: localSessionId,
       if (kind != null) #kind: kind,
       if (outcome != null) #outcome: outcome,
+      if (encrypted != $none) #encrypted: encrypted,
       if (createdAt != null) #createdAt: createdAt,
       if (finishedAt != $none) #finishedAt: finishedAt,
       if (files != null) #files: files,
@@ -668,6 +679,7 @@ class _ConversationEntryCopyWithImpl<$R, $Out>
     localSessionId: data.get(#localSessionId, or: $value.localSessionId),
     kind: data.get(#kind, or: $value.kind),
     outcome: data.get(#outcome, or: $value.outcome),
+    encrypted: data.get(#encrypted, or: $value.encrypted),
     createdAt: data.get(#createdAt, or: $value.createdAt),
     finishedAt: data.get(#finishedAt, or: $value.finishedAt),
     files: data.get(#files, or: $value.files),

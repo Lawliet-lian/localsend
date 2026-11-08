@@ -21,6 +21,7 @@ import 'package:localsend_app/widget/custom_progress_bar.dart';
 import 'package:localsend_app/widget/dialogs/cancel_session_dialog.dart';
 import 'package:localsend_app/widget/dialogs/error_dialog.dart';
 import 'package:localsend_app/widget/file_thumbnail.dart';
+import 'package:localsend_app/widget/transfer_security_label.dart';
 import 'package:localsend_isolates/model/dto/file_dto.dart';
 import 'package:localsend_isolates/model/file_status.dart';
 import 'package:localsend_isolates/model/session_status.dart';
@@ -114,7 +115,8 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
       }
 
       setState(() {
-        final receiveSession = ref.read(serverProvider)?.session;
+        final incoming = ref.read(serverProvider)?.session;
+        final receiveSession = incoming?.sessionId == widget.sessionId ? incoming : null;
         if (receiveSession != null) {
           _files = receiveSession.files.values.map((f) => f.file).toList();
         } else {
@@ -137,7 +139,8 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
   }
 
   void _exit({required bool closeSession}) async {
-    final receiveSession = ref.read(serverProvider.select((s) => s?.session));
+    final incoming = ref.read(serverProvider)?.session;
+    final receiveSession = incoming?.sessionId == widget.sessionId ? incoming : null;
     final sendSession = ref.read(sendProvider)[widget.sessionId];
     final SessionStatus? status = receiveSession?.status ?? sendSession?.status;
     final keepSession = !closeSession && (status == SessionStatus.sending || status == SessionStatus.finishedWithErrors);
@@ -158,7 +161,8 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
       false => true,
     };
     if (result) {
-      final receiveSession = ref.read(serverProvider)?.session;
+      final incoming = ref.read(serverProvider)?.session;
+      final receiveSession = incoming?.sessionId == widget.sessionId ? incoming : null;
       final sendState = ref.read(sendProvider)[widget.sessionId];
 
       if (receiveSession != null) {
@@ -201,7 +205,8 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
 
     // No select: comparing the selected session runs the dart_mappable deep equality
     // over the whole files map on every state change.
-    final receiveSession = ref.watch(serverProvider)?.session;
+    final incoming = ref.watch(serverProvider)?.session;
+    final receiveSession = incoming?.sessionId == widget.sessionId ? incoming : null;
     final sendSession = ref.watch(sendProvider)[widget.sessionId];
 
     final SessionState? commonSessionState = receiveSession ?? sendSession;
@@ -236,6 +241,7 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
     }
 
     final title = receiveSession != null ? t.progressPage.titleReceiving : t.progressPage.titleSending;
+    final encrypted = receiveSession?.encrypted ?? (sendSession?.target.ip != null ? sendSession!.target.https : null);
     final startTime = commonSessionState.startTime;
     final endTime = commonSessionState.endTime;
     final int? speedInBytes;
@@ -282,8 +288,8 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
               itemBuilder: (context, index) {
                 if (index == 0) {
                   // title
-                  if (widget.showAppBar) {
-                    return Container();
+                  if (widget.showAppBar && encrypted == null) {
+                    return const SizedBox.shrink();
                   }
 
                   return Padding(
@@ -291,7 +297,8 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(title, style: Theme.of(context).textTheme.titleLarge),
+                        if (!widget.showAppBar) Text(title, style: Theme.of(context).textTheme.titleLarge),
+                        if (encrypted != null) TransferSecurityLabel(encrypted: encrypted, receiving: receiveSession != null),
                         if (checkPlatformWithFileSystem() && receiveSession != null)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 10),

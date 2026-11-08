@@ -18,6 +18,7 @@ import 'package:localsend_app/util/native/taskbar_helper.dart';
 import 'package:localsend_app/util/ui/snackbar.dart';
 import 'package:localsend_app/widget/device_bage.dart';
 import 'package:localsend_app/widget/responsive_list_view.dart';
+import 'package:localsend_app/widget/transfer_security_label.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/model/dto/file_dto.dart';
 import 'package:localsend_isolates/model/session_status.dart';
@@ -29,6 +30,7 @@ import 'package:url_launcher/url_launcher.dart';
 class ReceivePageVm {
   final SessionStatus? status;
   final Device sender;
+  final bool? encrypted;
 
   /// Show verify button and device model.
   final bool showSenderInfo;
@@ -42,6 +44,7 @@ class ReceivePageVm {
   ReceivePageVm({
     required this.status,
     required this.sender,
+    this.encrypted,
     required this.showSenderInfo,
     required this.files,
     required this.message,
@@ -134,6 +137,7 @@ class _ReceivePageState extends State<ReceivePage> with Refena {
                                           );
                                         },
                                       ),
+                                      if (vm.encrypted case final encrypted?) TransferSecurityLabel(encrypted: encrypted, receiving: true),
                                       if (vm.showSenderInfo && vm.sender.deviceModel != null) ...[
                                         const SizedBox(height: 10),
                                         Center(

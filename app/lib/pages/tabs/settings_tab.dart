@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:localsend_app/config/theme.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/persistence/color_mode.dart';
+import 'package:localsend_app/model/persistence/quick_save_mode.dart';
 import 'package:localsend_app/pages/about/about_page.dart';
 import 'package:localsend_app/pages/changelog_page.dart';
 import 'package:localsend_app/pages/donation/donation_page.dart';
@@ -23,8 +24,6 @@ import 'package:localsend_app/widget/custom_dropdown_button.dart';
 import 'package:localsend_app/widget/dialogs/conversation_clear_dialog.dart';
 import 'package:localsend_app/widget/dialogs/encryption_disabled_notice.dart';
 import 'package:localsend_app/widget/dialogs/pin_dialog.dart';
-import 'package:localsend_app/widget/dialogs/quick_save_from_favorites_notice.dart';
-import 'package:localsend_app/widget/dialogs/quick_save_notice.dart';
 import 'package:localsend_app/widget/dialogs/text_field_tv.dart';
 import 'package:localsend_app/widget/dialogs/text_field_with_actions.dart';
 import 'package:localsend_app/widget/labeled_checkbox.dart';
@@ -162,34 +161,45 @@ class SettingsTab extends StatelessWidget {
             _SettingsSection(
               title: t.settingsTab.receive.title,
               children: [
-                _BooleanEntry(
-                  label: t.settingsTab.receive.quickSave,
-                  value: vm.settings.quickSave,
-                  onChanged: (b) async {
-                    final old = vm.settings.quickSave;
-                    await ref.notifier(settingsProvider).setQuickSave(b);
-                    if (b) {
-                      await ref.notifier(settingsProvider).setQuickSaveFromFavorites(false);
-                    }
-                    if (!old && b && context.mounted) {
-                      await QuickSaveNotice.open(context);
-                    }
-                  },
+                _SettingsEntry(
+                  label: t.settingsTab.receive.receiveConfirmation,
+                  description: t.settingsTab.receive.receiveConfirmationHint,
+                  child: CustomDropdownButton<QuickSaveMode>(
+                    value: vm.settings.receiveAutoAll
+                        ? QuickSaveMode.on
+                        : vm.settings.receiveAutoFavorites
+                        ? QuickSaveMode.paired
+                        : QuickSaveMode.off,
+                    items: [
+                      DropdownMenuItem(value: QuickSaveMode.off, child: Text(t.settingsTab.receive.confirmEveryRequest)),
+                      DropdownMenuItem(value: QuickSaveMode.paired, child: Text(t.settingsTab.receive.acceptFavorites)),
+                      DropdownMenuItem(value: QuickSaveMode.on, child: Text(t.settingsTab.receive.acceptAllDevices)),
+                    ],
+                    onChanged: (mode) => ref.notifier(settingsProvider).setReceiveConfirmation(mode),
+                  ),
                 ),
-                _BooleanEntry(
-                  label: t.settingsTab.receive.quickSaveFromFavorites,
-                  value: vm.settings.quickSaveFromFavorites,
-                  onChanged: (b) async {
-                    final old = vm.settings.quickSaveFromFavorites;
-                    await ref.notifier(settingsProvider).setQuickSaveFromFavorites(b);
-                    if (b) {
-                      await ref.notifier(settingsProvider).setQuickSave(false);
-                    }
-                    if (!old && b && context.mounted) {
-                      await QuickSaveFromFavoritesNotice.open(context);
-                    }
-                  },
-                ),
+                if (vm.settings.receiveAutoFavorites && !vm.settings.https)
+                  _BooleanEntry(
+                    label: t.settingsTab.receive.trustUnencryptedFavorites,
+                    value: vm.settings.trustUnencryptedFavorites,
+                    onChanged: (value) async {
+                      if (value) {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (dialogContext) => AlertDialog(
+                            title: Text(t.settingsTab.receive.trustUnencryptedFavorites),
+                            content: Text(t.settingsTab.receive.trustUnencryptedWarning),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(t.general.cancel)),
+                              TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(t.settingsTab.receive.acceptRisk)),
+                            ],
+                          ),
+                        );
+                        if (confirmed != true) return;
+                      }
+                      await ref.notifier(settingsProvider).setTrustUnencryptedFavorites(value);
+                    },
+                  ),
                 _BooleanEntry(
                   label: t.settingsTab.receive.requirePin,
                   value: vm.settings.receivePin != null,
@@ -514,6 +524,7 @@ class SettingsTab extends StatelessWidget {
                 if (vm.advanced)
                   _BooleanEntry(
                     label: t.settingsTab.network.encryption,
+                    description: t.settingsTab.network.encryptionScope,
                     value: vm.settings.https,
                     onChanged: (b) async {
                       final old = vm.settings.https;

@@ -42,6 +42,13 @@
     }
   },
   "general": {
+    "transferSecurity": {
+      "unknown": "加密状态未知",
+      "encryptedSend": "加密发送",
+      "plaintextSend": "明文发送",
+      "encryptedReceive": "加密接收",
+      "plaintextReceive": "明文接收"
+    },
     "accept": "接受",
     "accepted": "已接受",
     "add": "添加",
@@ -155,17 +162,28 @@
     },
     "receive": {
       "title": "接收",
+      "receiveConfirmation": "接收确认",
+      "confirmEveryRequest": "每次确认",
+      "acceptFavorites": "仅收藏设备免确认",
+      "acceptAllDevices": "所有设备免确认",
+      "receiveConfirmationHint": "文字和文件使用相同规则。所有设备包括陌生设备。",
+      "trustUnencryptedFavorites": "未加密时信任收藏设备自报指纹",
+      "trustUnencryptedWarning": "关闭加密后无法验证设备身份。其他设备可能冒充收藏设备，导致文字和文件被自动接收。",
+      "acceptRisk": "确认并承担风险",
+      "reviewReceiveSettings": "确认接收设置",
+      "reviewReceiveSettingsHint": "原自动保存设置仅适用于文件。请选择文字和文件的接收方式；选择前每次都需要确认。",
+      "chooseLater": "稍后选择",
       "quickSave": "@:general.quickSave",
       "quickSaveFromFavorites": "@:general.quickSaveFromFavorites",
       "requirePin": "@:webSharePage.requirePin",
-      "autoFinish": "自动完成传输任务",
+      "autoFinish": "传输完成后自动关闭进度页",
       "destination": "保存目录",
       "downloads": "(下载)",
       "saveToGallery": "保存到相册",
       "saveToHistory": "保存到历史记录",
       "verifyChecksums": "接收文件时验证校验和",
       "conversationReceive": "在聊天界面显示收到的消息和文件",
-      "conversationReceiveHint": "已收藏的设备将自动接收文件和消息；双方互相收藏后才能互相免确认发送。",
+      "conversationReceiveHint": "新的设备接收请求显示在聊天界面。",
       "clearConversationHistory": "清空全部会话记录"
     },
     "send": {
@@ -191,6 +209,7 @@
       "generateRandomAlias": "生成随机昵称",
       "portWarning": "由于正在使用自定义端口，你可能不会被其他设备检测到。（默认端口：{defaultPort}）",
       "encryption": "加密",
+      "encryptionScope": "此开关控制本机接收时是否加密。发送时使用对方设备的加密设置。",
       "multicastGroup": "多播",
       "multicastGroupWarning": "由于正在使用自定义多播地址，你可能不会被其他设备检测到。（默认地址：{defaultMulticast}）"
     },

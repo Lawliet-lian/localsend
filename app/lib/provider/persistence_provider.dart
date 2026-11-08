@@ -87,6 +87,8 @@ const _destinationKey = 'ls_destination';
 const _saveToGallery = 'ls_save_to_gallery';
 const _saveToHistory = 'ls_save_to_history';
 const _quickSave = 'ls_quick_save'; // a QuickSaveMode; was a bool until storage version 2 ('ls_quick_save_from_favorites' is merged into this key)
+const _receiveConfirmation = 'ls_receive_confirmation_v1';
+const _trustUnencryptedFavorites = 'ls_trust_unencrypted_favorites';
 const _receivePin = 'ls_receive_pin';
 const _autoFinish = 'ls_auto_finish';
 const _minimizeToTray = 'ls_minimize_to_tray';
@@ -184,6 +186,7 @@ class PersistenceService {
     }
 
     if (isFirstAppStart) {
+      await prefs.setString(_receiveConfirmation, QuickSaveMode.off.name);
       final systemAnimations = await getSystemAnimationsStatus();
       if (!systemAnimations) {
         _logger.info('System animations are disabled, disabling animations in the app.');
@@ -493,6 +496,18 @@ class PersistenceService {
     final value = _prefs.getString(_quickSave);
     return QuickSaveMode.values.firstWhereOrNull((mode) => mode.name == value) ?? QuickSaveMode.paired;
   }
+
+  QuickSaveMode getReceiveConfirmation() {
+    return QuickSaveMode.values.firstWhereOrNull((mode) => mode.name == _prefs.getString(_receiveConfirmation)) ?? QuickSaveMode.off;
+  }
+
+  bool needsReceiveConfirmationMigration() => !isFirstAppStart && !_prefs.containsKey(_receiveConfirmation);
+
+  Future<void> setReceiveConfirmation(QuickSaveMode mode) => _prefs.setString(_receiveConfirmation, mode.name);
+
+  bool getTrustUnencryptedFavorites() => _prefs.getBool(_trustUnencryptedFavorites) ?? false;
+
+  Future<void> setTrustUnencryptedFavorites(bool value) => _prefs.setBool(_trustUnencryptedFavorites, value);
 
   Future<void> setQuickSave(QuickSaveMode mode) async {
     await _prefs.setString(_quickSave, mode.name);
