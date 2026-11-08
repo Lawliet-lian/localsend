@@ -119,6 +119,14 @@ class Translations$conversation$zh_CN extends Translations$conversation$en {
   @override
   String get collapse => '收起';
   @override
+  String get dropFailed => '无法发送拖入的内容';
+  @override
+  String dropToSend({required Object name}) => '松开发送给 ${name}';
+  @override
+  String get album => '相册';
+  @override
+  String get attachmentImmediate => '选择后立即发送';
+  @override
   String get composeHint => '输入消息…';
   @override
   String get send => '发送';

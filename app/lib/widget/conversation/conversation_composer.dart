@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:localsend_app/gen/strings.g.dart';
+import 'package:localsend_app/util/native/file_picker.dart';
+import 'package:localsend_app/util/native/platform_check.dart';
 
 /// 会话输入栏（P6c）：纯文字消息的草稿输入与发送。
 ///
@@ -31,6 +33,7 @@ class ConversationComposer extends StatefulWidget {
 
   /// 附件选择回调（P9b）：null 时不渲染附件按钮（接线层未接入/设备离线）。
   final VoidCallback? onPickAttachment;
+  final ValueChanged<FilePickerOption>? onPickAttachmentOption;
 
   /// 附件按钮是否可用（P9b 门槛投影）：仅影响按钮置灰，不影响文字输入。
   final bool attachmentEnabled;
@@ -42,6 +45,7 @@ class ConversationComposer extends StatefulWidget {
     required this.onChanged,
     required this.onSend,
     this.onPickAttachment,
+    this.onPickAttachmentOption,
     this.attachmentEnabled = true,
   });
 
@@ -123,19 +127,26 @@ class _ConversationComposerState extends State<ConversationComposer> {
             children: [
               // 附件按钮（P9b）：接线层未传入回调时不渲染（不支持的入口不出现）；
               // 门槛不满足或离线时置灰。tooltip 复用既有 t.general.add，不新增文案。
-              if (widget.onPickAttachment != null)
+              if (checkPlatformIsDesktop() && widget.onPickAttachmentOption != null)
+                ...[FilePickerOption.file, FilePickerOption.folder].map(
+                  (option) => IconButton(
+                    icon: Icon(option.icon),
+                    tooltip: '${option.label} — ${t.conversation.attachmentImmediate}',
+                    onPressed: widget.enabled && widget.attachmentEnabled ? () => widget.onPickAttachmentOption!(option) : null,
+                  ),
+                )
+              else if (widget.onPickAttachment != null)
                 IconButton(
                   icon: const Icon(Icons.attach_file),
-                  tooltip: t.general.add,
+                  tooltip: '${t.general.add} — ${t.conversation.attachmentImmediate}',
                   onPressed: widget.enabled && widget.attachmentEnabled ? widget.onPickAttachment : null,
                 ),
               Expanded(
                 child: Focus(
                   canRequestFocus: false,
-                  onKeyEvent: _onKeyEvent,
+                  onKeyEvent: checkPlatformIsDesktop() ? _onKeyEvent : null,
                   child: TextField(
                     controller: _controller,
-                    enabled: widget.enabled,
                     // 多行输入：换行是消息内容的一部分，绝不因键盘行为丢失
                     maxLines: 4,
                     minLines: 1,
@@ -151,11 +162,14 @@ class _ConversationComposerState extends State<ConversationComposer> {
                   ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.send),
-                tooltip: t.conversation.send,
-                // 不可发送时按钮置灰：离线、空文本或提交锁未释放
-                onPressed: widget.enabled && !_locked ? _submit : null,
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _controller,
+                builder: (context, value, child) => IconButton(
+                  icon: const Icon(Icons.send),
+                  tooltip: t.conversation.send,
+                  // 不可发送时按钮置灰：离线、空文本或提交锁未释放
+                  onPressed: widget.enabled && !_locked && value.text.isNotEmpty ? _submit : null,
+                ),
               ),
             ],
           ),

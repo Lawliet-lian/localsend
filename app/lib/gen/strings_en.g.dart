@@ -102,6 +102,18 @@ class Translations$conversation$en {
   /// en: 'Collapse'
   String get collapse => 'Collapse';
 
+  /// en: 'Unable to send the dropped items'
+  String get dropFailed => 'Unable to send the dropped items';
+
+  /// en: 'Drop to send to {name}'
+  String dropToSend({required Object name}) => 'Drop to send to ${name}';
+
+  /// en: 'Album'
+  String get album => 'Album';
+
+  /// en: 'Sends immediately after selection'
+  String get attachmentImmediate => 'Sends immediately after selection';
+
   /// en: 'Type a message…'
   String get composeHint => 'Type a message…';
 

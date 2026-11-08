@@ -117,6 +117,7 @@ class _HomePageState extends State<HomePage> with Refena {
     final vm = context.watch(homePageControllerProvider);
 
     return DropTarget(
+      enable: vm.currentTab != HomeTab.conversation,
       onDragEntered: (_) {
         setState(() {
           _dragAndDropIndicator = true;
@@ -187,11 +188,11 @@ class _HomePageState extends State<HomePage> with Refena {
                         PageView(
                           controller: vm.controller,
                           physics: const NeverScrollableScrollPhysics(),
-                          children: const [
-                            ReceiveTab(),
-                            SendTab(),
-                            SettingsTab(),
-                            ConversationTab(), // 必须与 HomeTab.values 顺序一致（index 3 = conversation）
+                          children: [
+                            const ReceiveTab(),
+                            const SendTab(),
+                            const SettingsTab(),
+                            ConversationTab(dropEnabled: vm.currentTab == HomeTab.conversation), // 必须与 HomeTab.values 顺序一致（index 3 = conversation）
                           ],
                         ),
                         if (_dragAndDropIndicator)

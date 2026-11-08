@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:desktop_drop/desktop_drop.dart';
 
 import 'package:localsend_app/model/cross_file.dart';
 import 'package:logging/logging.dart';
@@ -14,7 +17,17 @@ class ConversationAttachmentCache {
   int _readers = 0;
   bool _closed = false;
 
-  bool get hasFiles => _directory != null;
+  final List<Uint8List> _bookmarks = [];
+
+  bool get hasFiles => _directory != null || _bookmarks.isNotEmpty;
+
+  Future<void> holdBookmark(Uint8List bookmark) async {
+    if (await DesktopDrop.instance.startAccessingSecurityScopedResource(bookmark: bookmark)) {
+      _bookmarks.add(bookmark);
+    } else {
+      throw FileSystemException('Cannot access dropped item');
+    }
+  }
 
   Future<List<CrossFile>> stage(List<CrossFile> files, {required bool copyImportedFiles}) async {
     final temp = (await getTemporaryDirectory()).path;
@@ -51,6 +64,17 @@ class ConversationAttachmentCache {
   }
 
   Future<void> _deleteIfUnused() async {
+    if (_closed && _readers == 0 && _bookmarks.isNotEmpty) {
+      final bookmarks = List<Uint8List>.of(_bookmarks);
+      _bookmarks.clear();
+      for (final bookmark in bookmarks) {
+        try {
+          await DesktopDrop.instance.stopAccessingSecurityScopedResource(bookmark: bookmark);
+        } catch (e) {
+          _logger.warning('Could not release dropped item access', e);
+        }
+      }
+    }
     final directory = _directory;
     if (_closed && _readers == 0 && directory != null) {
       _directory = null;

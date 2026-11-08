@@ -1,9 +1,14 @@
+import 'dart:async';
+
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/conversation/conversation_models.dart';
 import 'package:localsend_app/model/conversation/conversation_receive_card_vm.dart';
 import 'package:localsend_app/provider/conversation_view_provider.dart';
 import 'package:localsend_app/util/device_type_ext.dart';
+import 'package:localsend_app/util/native/file_picker.dart';
+import 'package:localsend_app/util/native/platform_check.dart';
 import 'package:localsend_app/widget/conversation/conversation_composer.dart';
 import 'package:localsend_app/widget/conversation/conversation_entry_tile.dart';
 import 'package:localsend_app/widget/conversation/conversation_list.dart';
@@ -23,6 +28,8 @@ import 'package:localsend_app/widget/transfer_security_label.dart';
 /// 卡片回调由接线层转发回 serverProvider 原有动作，
 /// 传输控制始终归属原有 provider（第 4 节不变量 1）。
 class ConversationPanel extends StatelessWidget {
+  final bool dropEnabled;
+  final Future<void> Function(List<DropItem>)? onDropFiles;
   final List<ConversationPeerView> views;
 
   /// 全部会话记录；面板按选中设备的 peerKey 过滤展示。
@@ -49,6 +56,7 @@ class ConversationPanel extends StatelessWidget {
 
   /// 附件选择回调（P9b）：透传给 composer；null 时附件按钮不渲染（dumb 合同）。
   final VoidCallback? onPickAttachment;
+  final ValueChanged<FilePickerOption>? onPickAttachmentOption;
 
   /// 附件按钮门槛投影（P9b）：接线层 watch conversationAttachmentEnabledProvider。
   final bool attachmentEnabled;
@@ -74,6 +82,8 @@ class ConversationPanel extends StatelessWidget {
 
   const ConversationPanel({
     super.key,
+    this.dropEnabled = false,
+    this.onDropFiles,
     required this.views,
     required this.entries,
     this.entryBuilder,
@@ -83,6 +93,7 @@ class ConversationPanel extends StatelessWidget {
     required this.onDraftChanged,
     required this.onSendText,
     this.onPickAttachment,
+    this.onPickAttachmentOption,
     this.attachmentEnabled = true,
     this.sendingLocked = false,
     this.receiveCard,
@@ -171,26 +182,33 @@ class ConversationPanel extends StatelessWidget {
         ),
       );
     }
-    return _ConversationDetail(
-      view: selected,
-      entries: _entriesFor(selected.peerKey),
-      entryBuilder: entryBuilder,
-      // 两栏时列表常驻左侧无需返回按钮；单栏详情必须能返回列表（方案 6.2）
-      showBackButton: !twoPane,
-      onBack: () => onSelect(null),
-      draftText: draftText,
-      onDraftChanged: onDraftChanged,
-      onSendText: onSendText,
-      onPickAttachment: onPickAttachment,
-      attachmentEnabled: attachmentEnabled,
-      sendingLocked: sendingLocked,
-      // P7c：卡片已在接线层按选中 peer 匹配，这里直接挂载
-      receiveCard: receiveCard,
-      onReceiveAccept: onReceiveAccept,
-      onReceiveDecline: onReceiveDecline,
-      onReceiveCancel: onReceiveCancel,
-      onReceiveClose: onReceiveClose,
-      onClearPeer: onClearPeer,
+    return _ConversationDropTarget(
+      key: ValueKey(selected.peerKey),
+      enabled: dropEnabled && checkPlatformIsDesktop(),
+      alias: selected.alias,
+      onDrop: onDropFiles,
+      child: _ConversationDetail(
+        view: selected,
+        entries: _entriesFor(selected.peerKey),
+        entryBuilder: entryBuilder,
+        // 两栏时列表常驻左侧无需返回按钮；单栏详情必须能返回列表（方案 6.2）
+        showBackButton: !twoPane,
+        onBack: () => onSelect(null),
+        draftText: draftText,
+        onDraftChanged: onDraftChanged,
+        onSendText: onSendText,
+        onPickAttachment: onPickAttachment,
+        onPickAttachmentOption: onPickAttachmentOption,
+        attachmentEnabled: attachmentEnabled,
+        sendingLocked: sendingLocked,
+        // P7c：卡片已在接线层按选中 peer 匹配，这里直接挂载
+        receiveCard: receiveCard,
+        onReceiveAccept: onReceiveAccept,
+        onReceiveDecline: onReceiveDecline,
+        onReceiveCancel: onReceiveCancel,
+        onReceiveClose: onReceiveClose,
+        onClearPeer: onClearPeer,
+      ),
     );
   }
 
@@ -213,6 +231,7 @@ class _ConversationDetail extends StatelessWidget {
   final ValueChanged<String> onDraftChanged;
   final ValueChanged<String> onSendText;
   final VoidCallback? onPickAttachment;
+  final ValueChanged<FilePickerOption>? onPickAttachmentOption;
   final bool attachmentEnabled;
   final bool sendingLocked;
   final ConversationReceiveCardVm? receiveCard;
@@ -234,6 +253,7 @@ class _ConversationDetail extends StatelessWidget {
     required this.onDraftChanged,
     required this.onSendText,
     required this.onPickAttachment,
+    required this.onPickAttachmentOption,
     required this.attachmentEnabled,
     required this.sendingLocked,
     required this.receiveCard,
@@ -341,6 +361,7 @@ class _ConversationDetail extends StatelessWidget {
           onChanged: onDraftChanged,
           onSend: onSendText,
           onPickAttachment: onPickAttachment,
+          onPickAttachmentOption: onPickAttachmentOption,
           attachmentEnabled: attachmentEnabled,
         ),
       ],
@@ -375,6 +396,58 @@ class _EntryListView extends StatelessWidget {
             child: entryBuilder?.call(entry) ?? ConversationEntryTile(entry: entry),
           );
         },
+      ),
+    );
+  }
+}
+
+class _ConversationDropTarget extends StatefulWidget {
+  final bool enabled;
+  final String alias;
+  final Future<void> Function(List<DropItem>)? onDrop;
+  final Widget child;
+  const _ConversationDropTarget({super.key, required this.enabled, required this.alias, required this.onDrop, required this.child});
+
+  @override
+  State<_ConversationDropTarget> createState() => _ConversationDropTargetState();
+}
+
+class _ConversationDropTargetState extends State<_ConversationDropTarget> {
+  bool hovering = false;
+  @override
+  void didUpdateWidget(covariant _ConversationDropTarget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled) hovering = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DropTarget(
+      enable: widget.enabled,
+      onDragEntered: (_) => setState(() => hovering = true),
+      onDragExited: (_) => setState(() => hovering = false),
+      onDragDone: (event) {
+        setState(() => hovering = false);
+        final drop = widget.onDrop;
+        if (drop == null) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.conversation.offline)));
+        } else {
+          unawaited(drop(List<DropItem>.of(event.files)));
+        }
+      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          widget.child,
+          if (hovering)
+            IgnorePointer(
+              child: Container(
+                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+                alignment: Alignment.center,
+                child: Text(t.conversation.dropToSend(name: widget.alias), textAlign: TextAlign.center),
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsend_app/gen/strings.g.dart';
+import 'package:localsend_app/util/native/file_picker.dart';
 import 'package:localsend_app/widget/conversation/conversation_composer.dart';
 
 /// P6c：输入栏的行为合同测试（门槛：双击只发一次；文字保持原样；离线禁止发送）。
@@ -32,11 +34,45 @@ void main() {
   }
 
   group('ConversationComposer', () {
+    testWidgets('desktop attachment buttons choose the requested type', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      FilePickerOption? selected;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ConversationComposer(
+              initialValue: '',
+              enabled: true,
+              onChanged: (_) {},
+              onSend: (_) {},
+              onPickAttachmentOption: (option) => selected = option,
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byIcon(Icons.folder));
+      expect(selected, FilePickerOption.folder);
+      await tester.tap(find.byIcon(Icons.description));
+      expect(selected, FilePickerOption.file);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('offline draft is editable while send remains disabled', (tester) async {
+      final changes = <String>[];
+      await pumpComposer(tester, enabled: false, onSend: (_) {}, onChanged: changes.add);
+      await tester.enterText(find.byType(TextField), 'draft');
+      await tester.pump();
+      expect(changes.last, 'draft');
+      expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.send)).onPressed, isNull);
+    });
+
     testWidgets('Enter sends; Shift+Enter and Command+Enter insert a newline', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       final sent = <String>[];
       final changes = <String>[];
       await pumpComposer(tester, enabled: true, onSend: sent.add, onChanged: changes.add);
       await tester.enterText(find.byType(TextField), 'first');
+      await tester.pump();
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
@@ -50,6 +86,7 @@ void main() {
       await tester.pump();
       expect(sent, ['first\n\n']);
       expect(changes.last, isEmpty);
+      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets('Enter during IME composition does not send', (tester) async {
@@ -79,6 +116,7 @@ void main() {
       await pumpComposer(tester, enabled: true, onSend: (text) => sent = text);
 
       await tester.enterText(find.byType(TextField), '  hello\nworld  ');
+      await tester.pump();
       await tester.tap(find.byIcon(Icons.send));
       await tester.pump();
 
@@ -93,6 +131,7 @@ void main() {
       await pumpComposer(tester, enabled: true, onSend: sent.add);
 
       await tester.enterText(find.byType(TextField), 'once');
+      await tester.pump();
       // 连续双击发送按钮：提交锁 + 输入框清空保证只发出第一条
       await tester.tap(find.byIcon(Icons.send));
       await tester.tap(find.byIcon(Icons.send));
@@ -116,6 +155,7 @@ void main() {
       await pumpComposer(tester, enabled: false, onSend: sent.add);
 
       await tester.enterText(find.byType(TextField), 'queued while offline');
+      await tester.pump();
       await tester.tap(find.byIcon(Icons.send));
       await tester.pump();
 
@@ -128,6 +168,7 @@ void main() {
       await pumpComposer(tester, enabled: true, onSend: (_) {}, onChanged: changes.add);
 
       await tester.enterText(find.byType(TextField), 'abc');
+      await tester.pump();
 
       expect(changes.last, 'abc');
       // 提交时同步清空草稿（onChanged('')）
@@ -141,11 +182,13 @@ void main() {
       await pumpComposer(tester, enabled: true, onSend: sent.add);
 
       await tester.enterText(find.byType(TextField), 'first');
+      await tester.pump();
       await tester.tap(find.byIcon(Icons.send));
       await tester.pump();
 
       // 重新输入非空文本解除提交锁：允许第二条（新 session 新记录）
       await tester.enterText(find.byType(TextField), 'second');
+      await tester.pump();
       await tester.tap(find.byIcon(Icons.send));
       await tester.pump();
 

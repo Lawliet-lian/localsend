@@ -11,8 +11,9 @@ import 'package:routerino/routerino.dart';
 class AddFileDialog extends StatelessWidget {
   final List<FilePickerOption> options;
   final ValueChanged<FilePickerOption>? onSelect;
+  final String? mediaLabel;
 
-  const AddFileDialog({required this.options, this.onSelect});
+  const AddFileDialog({required this.options, this.onSelect, this.mediaLabel});
 
   static Future<void> open({required BuildContext context, required List<FilePickerOption> options}) async {
     if (checkPlatformIsDesktop()) {
@@ -31,9 +32,10 @@ class AddFileDialog extends StatelessWidget {
     }
   }
 
-  static Future<FilePickerOption?> chooseOption(BuildContext context) {
+  static Future<FilePickerOption?> chooseOption(BuildContext context, {List<FilePickerOption>? options, String? mediaLabel}) {
     AddFileDialog picker(BuildContext routeContext) => AddFileDialog(
-      options: FilePickerOption.getOptionsForPlatform(),
+      options: options ?? FilePickerOption.getOptionsForPlatform(),
+      mediaLabel: mediaLabel,
       onSelect: (option) => Navigator.of(routeContext).pop(option),
     );
     if (checkPlatformIsDesktop()) {
@@ -72,7 +74,7 @@ class AddFileDialog extends StatelessWidget {
         ...options.map((option) {
           return BigButton(
             icon: option.icon,
-            label: option.label,
+            label: option == FilePickerOption.media ? mediaLabel ?? option.label : option.label,
             filled: true,
             onTap: () async {
               final select = onSelect;

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'dart:convert';
 
 import 'package:collection/collection.dart';
@@ -57,7 +58,8 @@ final conversationReceiveCardProvider = ViewProvider((ref) {
 /// 接收卡片按钮全部转发 serverProvider 同名动作，传输控制仍归属原有 provider；
 /// 旧入口（接收/发送/设置）行为完全不变，会话 tab 追加在首页 enum 末尾。
 class ConversationTab extends StatelessWidget {
-  const ConversationTab({super.key});
+  final bool dropEnabled;
+  const ConversationTab({super.key, this.dropEnabled = true});
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +85,10 @@ class ConversationTab extends StatelessWidget {
     );
 
     return ConversationPanel(
+      dropEnabled: dropEnabled,
+      onDropFiles: selectedDevice == null
+          ? null
+          : (files) => ref.notifier(conversationAttachmentProvider).sendDroppedFiles(context, target: selectedDevice, files: files),
       views: views,
       entries: entries,
       entryBuilder: (entry) => ConversationSendEntryTile(entry: entry),
@@ -115,6 +121,9 @@ class ConversationTab extends StatelessWidget {
       onPickAttachment: selectedDevice == null
           ? null
           : () => unawaited(ref.notifier(conversationAttachmentProvider).pickAndSend(context, target: selectedDevice)),
+      onPickAttachmentOption: selectedDevice == null
+          ? null
+          : (option) => unawaited(ref.notifier(conversationAttachmentProvider).pickAndSendOption(context, target: selectedDevice, option: option)),
       attachmentEnabled: attachmentEnabled,
       sendingLocked: picking,
       // P7c：卡片与按钮回调全部转发 serverProvider 原有动作；重复点击安全：
