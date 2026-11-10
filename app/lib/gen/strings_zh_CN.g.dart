@@ -109,6 +109,8 @@ class Translations$conversation$zh_CN extends Translations$conversation$en {
   @override
   String get title => '会话';
   @override
+  String get myFavorites => '我的收藏';
+  @override
   String get empty => '暂无会话';
   @override
   String get selectDevice => '选择设备';
@@ -119,9 +121,9 @@ class Translations$conversation$zh_CN extends Translations$conversation$en {
   @override
   String get collapse => '收起';
   @override
-  String get dropFailed => '无法发送拖入的内容';
+  String get dropFailed => '无法添加拖入的内容';
   @override
-  String dropToSend({required Object name}) => '松开发送给 ${name}';
+  String dropToSend({required Object name}) => '松开后添加到 ${name} 的暂存区';
   @override
   String get album => '相册';
   @override

@@ -267,7 +267,8 @@ impl DiscoveryHandle {
     /// each channel a register request: [`DiscoveryHandle::discover`] for a
     /// whole list, probed concurrently.
     ///
-    /// Channels that do not answer are skipped; returns the stored state of
+    /// If a request fails, retries with the other HTTP protocol. Channels
+    /// that do not answer are skipped; returns the stored state of
     /// the devices that answered, in completion order.
     pub async fn discover_known_http_channels(
         &self,
@@ -279,11 +280,23 @@ impl DiscoveryHandle {
         let client = &client;
         let found = futures_util::stream::iter(channels)
             .map(|channel| async move {
-                state
+                match state
                     .probe(client, &channel.host, channel.port, channel.protocol)
                     .await
-                    .ok()
-                    .flatten()
+                {
+                    Ok(device) => device,
+                    Err(_) => {
+                        let alternate = match channel.protocol {
+                            ProtocolType::Http => ProtocolType::Https,
+                            ProtocolType::Https => ProtocolType::Http,
+                        };
+                        state
+                            .probe(client, &channel.host, channel.port, alternate)
+                            .await
+                            .ok()
+                            .flatten()
+                    }
+                }
             })
             .buffer_unordered(SCAN_CONCURRENCY)
             .filter_map(std::future::ready)

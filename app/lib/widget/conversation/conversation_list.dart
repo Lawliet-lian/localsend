@@ -27,29 +27,60 @@ class ConversationList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget content;
-    if (views.isEmpty) {
-      // 空态：没有任何可发现的设备或历史会话
-      content = Center(
-        child: Text(
-          t.conversation.empty,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.outline),
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    Widget group(String title, bool favorite) {
+      final devices = views.where((view) => view.isFavorite == favorite).toList();
+      final online = devices.where((view) => view.online).length;
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: ExpansionTile(
+            key: PageStorageKey('conversation-group-$favorite'),
+            initiallyExpanded: true,
+            shape: const Border(),
+            collapsedShape: const Border(),
+            backgroundColor: colors.surfaceContainerLow,
+            collapsedBackgroundColor: colors.surfaceContainerLow,
+            dense: true,
+            visualDensity: const VisualDensity(vertical: -1),
+            tilePadding: const EdgeInsetsDirectional.only(start: 14, end: 12),
+            leading: Icon(favorite ? Icons.star_rounded : Icons.radar, size: 20, color: colors.primary),
+            title: Row(
+              children: [
+                Flexible(
+                  child: Text(title, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                ),
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: '${t.general.online}: $online / ${devices.length}',
+                  child: Text('$online / ${devices.length}', style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant)),
+                ),
+              ],
+            ),
+            children: [
+              for (final view in devices) ...[
+                _ConversationListTile(view: view, selected: view.peerKey == selectedPeerKey, onTap: () => onTap(view.peerKey)),
+                Divider(height: 1, indent: 16, endIndent: 16, color: colors.outlineVariant.withValues(alpha: 0.45)),
+              ],
+            ],
+          ),
         ),
       );
-    } else {
-      content = ListView.separated(
-        itemCount: views.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final view = views[index];
-          return _ConversationListTile(
-            view: view,
-            selected: view.peerKey == selectedPeerKey,
-            onTap: () => onTap(view.peerKey),
-          );
-        },
-      );
     }
+
+    final content = ListView(
+      children: [
+        group(t.conversation.myFavorites, true),
+        group(t.sendTab.nearbyDevices, false),
+        if (views.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(child: Text(t.conversation.empty, style: Theme.of(context).textTheme.bodyMedium)),
+          ),
+      ],
+    );
     return Material(
       type: MaterialType.transparency,
       child: Column(
@@ -94,44 +125,66 @@ class _ConversationListTile extends StatelessWidget {
     final theme = Theme.of(context);
     final textColor = view.online ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withValues(alpha: 0.5);
 
-    return ListTile(
-      selected: selected,
-      onTap: onTap,
-      leading: Icon(view.deviceType.icon, color: textColor),
-      title: Row(
-        children: [
-          Flexible(
-            child: Text(
-              view.alias,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleSmall?.copyWith(color: textColor),
+    return Stack(
+      children: [
+        if (selected)
+          PositionedDirectional(
+            start: 0,
+            top: 10,
+            bottom: 10,
+            child: Container(
+              width: 3,
+              decoration: BoxDecoration(color: theme.colorScheme.primary, borderRadius: BorderRadius.circular(3)),
             ),
           ),
-          const SizedBox(width: 6),
-          // 在线状态：语义是"在线/未发现"（不变量 8），不是"已连接"
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: view.online ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
-            ),
+        ListTile(
+          selected: selected,
+          dense: true,
+          visualDensity: const VisualDensity(vertical: -1),
+          selectedTileColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+          contentPadding: const EdgeInsetsDirectional.only(start: 22, end: 16),
+          onTap: onTap,
+          leading: Icon(view.deviceType.icon, color: textColor),
+          title: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  view.alias,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(color: textColor),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // 在线状态：语义是"在线/未发现"（不变量 8），不是"已连接"
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: view.online ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
+                ),
+              ),
+              if (!view.online) ...[
+                const SizedBox(width: 5),
+                Text(t.general.offline, style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              ],
+            ],
           ),
-        ],
-      ),
-      subtitle: Text(
-        _subtitle(context, view),
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.bodySmall?.copyWith(color: textColor.withValues(alpha: 0.7)),
-      ),
-      // 活跃收发指示：仅小图标提示，不提供任何操作（取消属于原传输 provider）
-      trailing: (view.hasActiveSend || view.hasActiveReceive)
-          ? SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2, color: theme.colorScheme.primary),
-            )
-          : null,
+          subtitle: Text(
+            _subtitle(context, view),
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(color: textColor.withValues(alpha: 0.7)),
+          ),
+          // 活跃收发指示：仅小图标提示，不提供任何操作（取消属于原传输 provider）
+          trailing: (view.hasActiveSend || view.hasActiveReceive)
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: theme.colorScheme.primary),
+                )
+              : null,
+        ),
+      ],
     );
   }
 
@@ -139,7 +192,7 @@ class _ConversationListTile extends StatelessWidget {
   String _subtitle(BuildContext context, ConversationPeerView view) {
     final last = view.lastEntry;
     if (last == null) {
-      return view.online ? t.conversation.selectDevice : t.general.offline;
+      return view.online ? t.conversation.selectDevice : '';
     }
     final date = _formatDate(last.createdAt);
     final label = last.text ?? (last.files.isNotEmpty ? t.general.files : '');

@@ -7,6 +7,11 @@ import 'package:localsend_app/util/native/tray_helper.dart';
 
 const _methodChannel = MethodChannel('main-delegate-channel');
 
+Future<List<(String, Uint8List)>> pickConversationAttachments() async {
+  final items = await _methodChannel.invokeListMethod<Map<Object?, Object?>>('pickConversationAttachments') ?? [];
+  return items.map((item) => (item['path'] as String, item['bookmark'] as Uint8List)).toList();
+}
+
 Future<bool> restoreWindowFrame() async {
   return await _methodChannel.invokeMethod<bool>('restoreWindowFrame') ?? false;
 }

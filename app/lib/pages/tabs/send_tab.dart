@@ -337,8 +337,7 @@ class _ScanButton extends StatelessWidget {
           reverse: true,
           child: CustomIconButton(
             onPressed: () async {
-              context.redux(nearbyDevicesProvider).dispatch(ClearFoundDevicesAction());
-              await context.global.dispatchAsync(StartSmartScan());
+              await context.global.dispatchAsync(RefreshConversationDevices());
             },
             child: Icon(Icons.sync, color: iconColor),
           ),

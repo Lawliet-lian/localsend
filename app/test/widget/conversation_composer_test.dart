@@ -38,6 +38,55 @@ void main() {
   }
 
   group('ConversationComposer', () {
+    testWidgets('attachment remains usable and new drafts unlock send after a previous message', (tester) async {
+      const file = CrossFile(
+        name: 'file.txt',
+        fileType: FileType.text,
+        size: 1,
+        thumbnail: null,
+        asset: null,
+        path: null,
+        bytes: [1],
+        lastModified: null,
+        lastAccessed: null,
+      );
+      var files = <CrossFile>[];
+      var picks = 0;
+      var sentFiles = 0;
+      late StateSetter update;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return ConversationComposer(
+                  initialValue: 'hello',
+                  enabled: true,
+                  onChanged: (_) {},
+                  onSend: (_) {},
+                  fileDrafts: files,
+                  onRemoveFile: (index) => setState(() => files = []),
+                  onPickAttachment: () => picks++,
+                  onSendFiles: (_, _, selected) => sentFiles += selected.length,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byIcon(Icons.send));
+      update(() => files = [file]);
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.attach_file));
+      expect(picks, 1);
+      update(() => files = [file]);
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.send));
+      expect(sentFiles, 1);
+    });
     testWidgets('file draft can be removed or submitted with text', (tester) async {
       const file = CrossFile(
         name: 'video.mp4',
@@ -105,7 +154,7 @@ void main() {
       expect(sentImage, same(bytes));
     });
     testWidgets('desktop attachment buttons choose the requested type', (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
       FilePickerOption? selected;
       await tester.pumpWidget(
         MaterialApp(
@@ -124,6 +173,30 @@ void main() {
       expect(selected, FilePickerOption.folder);
       await tester.tap(find.byIcon(Icons.description));
       expect(selected, FilePickerOption.file);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('macOS uses one attachment button', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      var picked = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ConversationComposer(
+              initialValue: '',
+              enabled: true,
+              onChanged: (_) {},
+              onSend: (_) {},
+              onPickAttachment: () => picked = true,
+              onPickAttachmentOption: (_) => fail('macOS should use the combined picker'),
+            ),
+          ),
+        ),
+      );
+      expect(find.byIcon(Icons.folder), findsNothing);
+      expect(find.byIcon(Icons.description), findsNothing);
+      await tester.tap(find.byIcon(Icons.attach_file));
+      expect(picked, isTrue);
       debugDefaultTargetPlatformOverride = null;
     });
 

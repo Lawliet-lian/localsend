@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +10,7 @@ import 'package:localsend_app/model/conversation/transfer_presentation.dart';
 import 'package:localsend_app/model/cross_file.dart';
 import 'package:localsend_app/model/state/send/send_session_state.dart';
 import 'package:localsend_app/provider/conversation_attachment_provider.dart';
+import 'package:localsend_app/provider/conversation_file_draft_provider.dart';
 import 'package:localsend_app/provider/conversation_view_provider.dart';
 import 'package:localsend_app/provider/network/send_provider.dart';
 import 'package:localsend_app/provider/selection/selected_sending_files_provider.dart';
@@ -263,6 +265,52 @@ void main() {
     expect(sendNotifier.calls, isEmpty);
   });
 
+  testWidgets('removing a picked draft allows picking another one', variant: mobile, (tester) async {
+    final context = await pumpContext(tester);
+    var calls = 0;
+    final isolatedContainer = RefenaContainer(
+      overrides: [
+        conversationAttachmentProvider.overrideWithNotifier(
+          (_) => _TestAttachmentService(() async {
+            calls++;
+            return [_desktopFile('file$calls')];
+          }),
+        ),
+      ],
+    );
+    addTearDown(isolatedContainer.disposeContainer);
+    final service = isolatedContainer.notifier(conversationAttachmentProvider);
+    await service.pickToDraft(context, peerKey: 'peer');
+    expect(isolatedContainer.read(conversationAttachmentEnabledProvider), isTrue);
+    expect(isolatedContainer.read(conversationFileDraftProvider)['peer']!.single.name, 'file1');
+    isolatedContainer.notifier(conversationFileDraftProvider).setFiles('peer', []);
+    expect(isolatedContainer.read(conversationAttachmentEnabledProvider), isTrue);
+    await service.pickToDraft(context, peerKey: 'peer');
+    expect(isolatedContainer.read(conversationFileDraftProvider)['peer']!.single.name, 'file2');
+    expect(isolatedContainer.read(conversationAttachmentEnabledProvider), isTrue);
+  });
+
+  testWidgets('dropped files are added to the selected draft without starting a transfer', (tester) async {
+    final context = await pumpContext(tester);
+    final isolatedContainer = RefenaContainer(
+      overrides: [
+        sendProvider.overrideWithNotifier((_) => sendNotifier),
+        conversationAttachmentProvider.overrideWithNotifier((_) => _DroppedAttachmentService()),
+      ],
+    );
+    addTearDown(isolatedContainer.disposeContainer);
+    await isolatedContainer
+        .notifier(conversationAttachmentProvider)
+        .addDroppedFilesToDraft(
+          context,
+          peerKey: 'peer',
+          files: [DropItemFile('/files/a')],
+        );
+    expect(isolatedContainer.read(conversationFileDraftProvider)['peer']!.single.name, 'dropped.txt');
+    expect(sendNotifier.calls, isEmpty);
+    expect(isolatedContainer.read(conversationAttachmentEnabledProvider), isTrue);
+  });
+
   testWidgets('Android picker returns a SAF URI without modifying legacy selection', variant: mobile, (tester) async {
     pickBinary('legacy.bin');
     const channel = MethodChannel('org.localsend.localsend_app/localsend');
@@ -320,6 +368,11 @@ class _TestAttachmentService extends ConversationAttachmentService {
 
   @override
   Future<List<CrossFile>> pickFiles(BuildContext context, ConversationAttachmentCache cache) => files();
+}
+
+class _DroppedAttachmentService extends ConversationAttachmentService {
+  @override
+  Future<List<CrossFile>> convertDroppedFiles(List<DropItem> files, ConversationAttachmentCache cache) async => [_desktopFile('dropped.txt')];
 }
 
 /// 替换真实发送：只记录调用参数，不碰网络

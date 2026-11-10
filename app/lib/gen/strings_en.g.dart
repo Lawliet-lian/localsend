@@ -87,6 +87,9 @@ class Translations$conversation$en {
   /// en: 'Conversations'
   String get title => 'Conversations';
 
+  /// en: 'My favorites'
+  String get myFavorites => 'My favorites';
+
   /// en: 'No conversations yet'
   String get empty => 'No conversations yet';
 
@@ -102,11 +105,11 @@ class Translations$conversation$en {
   /// en: 'Collapse'
   String get collapse => 'Collapse';
 
-  /// en: 'Unable to send the dropped items'
-  String get dropFailed => 'Unable to send the dropped items';
+  /// en: 'Unable to add the dropped items'
+  String get dropFailed => 'Unable to add the dropped items';
 
-  /// en: 'Drop to send to {name}'
-  String dropToSend({required Object name}) => 'Drop to send to ${name}';
+  /// en: 'Drop to add attachments for {name}'
+  String dropToSend({required Object name}) => 'Drop to add attachments for ${name}';
 
   /// en: 'Album'
   String get album => 'Album';

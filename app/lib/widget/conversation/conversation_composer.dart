@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:localsend_app/gen/strings.g.dart';
+import 'package:localsend_app/model/conversation/file_draft_group.dart';
 import 'package:localsend_app/model/cross_file.dart';
 import 'package:localsend_app/util/native/file_picker.dart';
 import 'package:localsend_app/util/native/platform_check.dart';
@@ -77,6 +78,16 @@ class _ConversationComposerState extends State<ConversationComposer> {
 
   /// 提交锁：一次发送动作期间只允许一次提交（见类注释的行为合同）。
   bool _locked = false;
+
+  @override
+  void didUpdateWidget(covariant ConversationComposer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_locked &&
+        (widget.fileDrafts.any((file) => !oldWidget.fileDrafts.contains(file)) ||
+            (widget.imageDraft != null && widget.imageDraft != oldWidget.imageDraft))) {
+      _locked = false;
+    }
+  }
 
   @override
   void dispose() {
@@ -196,6 +207,7 @@ class _ConversationComposerState extends State<ConversationComposer> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final fileGroups = groupFileDrafts(widget.fileDrafts);
 
     // TextField/IconButton 需要 Material 祖先；组件不假设外部一定被 Scaffold 包裹
     return Material(
@@ -231,13 +243,17 @@ class _ConversationComposerState extends State<ConversationComposer> {
                   constraints: const BoxConstraints(maxHeight: 150),
                   child: ListView.builder(
                     shrinkWrap: true,
-                    itemCount: widget.fileDrafts.length,
+                    itemCount: fileGroups.length,
                     itemBuilder: (context, i) => Row(
                       children: [
-                        const Icon(Icons.insert_drive_file_outlined),
+                        Icon(fileGroups[i].isFolder ? Icons.folder_outlined : Icons.insert_drive_file_outlined),
                         const SizedBox(width: 8),
-                        Expanded(child: Text('${widget.fileDrafts[i].name} (${widget.fileDrafts[i].size} B)', overflow: TextOverflow.ellipsis)),
-                        IconButton(tooltip: t.general.close, onPressed: () => widget.onRemoveFile?.call(i), icon: const Icon(Icons.close)),
+                        Expanded(child: Text('${fileGroups[i].name} (${fileGroups[i].size} B)', overflow: TextOverflow.ellipsis)),
+                        IconButton(
+                          tooltip: t.general.close,
+                          onPressed: () => widget.onRemoveFile?.call(fileGroups[i].indices.first),
+                          icon: const Icon(Icons.close),
+                        ),
                       ],
                     ),
                   ),
@@ -247,18 +263,18 @@ class _ConversationComposerState extends State<ConversationComposer> {
                 children: [
                   // 附件按钮（P9b）：接线层未传入回调时不渲染（不支持的入口不出现）；
                   // 门槛不满足或离线时置灰。tooltip 复用既有 t.general.add，不新增文案。
-                  if (checkPlatformIsDesktop() && widget.onPickAttachmentOption != null)
+                  if (checkPlatformIsDesktop() && !checkPlatform([TargetPlatform.macOS]) && widget.onPickAttachmentOption != null)
                     ...[FilePickerOption.file, FilePickerOption.folder].map(
                       (option) => IconButton(
                         icon: Icon(option.icon),
-                        tooltip: '${option.label} — ${t.conversation.attachmentImmediate}',
+                        tooltip: option.label,
                         onPressed: widget.enabled && widget.attachmentEnabled ? () => widget.onPickAttachmentOption!(option) : null,
                       ),
                     )
                   else if (widget.onPickAttachment != null)
                     IconButton(
                       icon: const Icon(Icons.attach_file),
-                      tooltip: '${t.general.add} — ${t.conversation.attachmentImmediate}',
+                      tooltip: t.general.add,
                       onPressed: widget.enabled && widget.attachmentEnabled ? widget.onPickAttachment : null,
                     ),
                   Expanded(

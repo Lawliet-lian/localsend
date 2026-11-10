@@ -217,7 +217,7 @@ class _HomePageState extends State<HomePage> with Refena {
       },
       child: ResponsiveBuilder(
         builder: (sizingInformation) {
-          final adjustable = sizingInformation.isDesktop && vm.currentTab == HomeTab.conversation && MediaQuery.sizeOf(context).width >= 808;
+          final adjustable = sizingInformation.isDesktop && MediaQuery.sizeOf(context).width >= 808;
           final maxNavigationWidth = (MediaQuery.sizeOf(context).width - 628).clamp(72.0, 360.0);
           final navigationWidth = _navigationWidth.clamp(72.0, maxNavigationWidth);
           final compactNavigation = adjustable && navigationWidth < 180;
@@ -259,7 +259,7 @@ class _HomePageState extends State<HomePage> with Refena {
                                 selectedIndex: vm.currentTab.index,
                                 onDestinationSelected: (index) => changeTab(HomeTab.values[index]),
                                 extended: sizingInformation.isDesktop && !compactNavigation,
-                                minExtendedWidth: 180,
+                                minExtendedWidth: 72,
                                 backgroundColor: Theme.of(context).cardColorWithElevation,
                                 destinations: HomeTab.values
                                     .map((tab) => NavigationRailDestination(icon: Icon(tab.icon), label: Text(tab.label)))

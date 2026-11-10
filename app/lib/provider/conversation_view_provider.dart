@@ -1,8 +1,10 @@
 import 'package:localsend_app/model/conversation/conversation_models.dart';
+import 'package:localsend_app/model/persistence/favorite_device.dart';
 import 'package:localsend_app/model/state/nearby_devices_state.dart';
 import 'package:localsend_app/model/state/send/send_session_state.dart';
 import 'package:localsend_app/model/state/server/server_state.dart';
 import 'package:localsend_app/provider/conversation_provider.dart';
+import 'package:localsend_app/provider/favorites_provider.dart';
 import 'package:localsend_app/provider/network/nearby_devices_provider.dart';
 import 'package:localsend_app/provider/network/send_provider.dart';
 import 'package:localsend_app/provider/network/server/server_provider.dart';
@@ -25,6 +27,7 @@ class ConversationPeerView {
   /// 是否被当前发现（多播/信令）。语义是"在线/未发现"，不是"已连接"（不变量 8）。
   /// 离线设备仍可查看历史，UI 需据此禁用发送（方案 6.2）。
   final bool online;
+  final bool isFavorite;
 
   /// 在线时的最新可用 Device（发送时取最新地址，保留 IPv6 scope，不变量 5）；离线为 null。
   final Device? device;
@@ -46,6 +49,7 @@ class ConversationPeerView {
     required this.alias,
     required this.deviceType,
     required this.online,
+    this.isFavorite = false,
     required this.device,
     required this.lastEntry,
     required this.entryCount,
@@ -71,6 +75,7 @@ List<ConversationPeerView> buildConversationPeerViews({
   required ConversationState conversation,
   required NearbyDevicesState nearby,
   required Map<String, SendSessionState> sendSessions,
+  List<FavoriteDevice> favorites = const [],
   ServerState? serverState,
 }) {
   // 在线设备按 peerKey 建索引：指纹统一小写规范化，避免大小写差异分裂会话。
@@ -81,6 +86,10 @@ List<ConversationPeerView> buildConversationPeerViews({
 
   // 历史 peer 索引
   final peerByPeerKey = {for (final p in conversation.peers) p.peerKey: p};
+  final favoriteByPeerKey = <String, FavoriteDevice>{
+    for (final favorite in favorites)
+      if (favorite.fingerprint.trim().isNotEmpty) ConversationPeer.peerKeyFor(favorite.fingerprint): favorite,
+  };
 
   // entries 按 peer 聚合：最后一条（createdAt 最大）+ 条数
   final lastEntryByPeer = <String, ConversationEntry>{};
@@ -110,15 +119,16 @@ List<ConversationPeerView> buildConversationPeerViews({
 
   // 候选集合：所有有历史的 peer + 所有当前发现的设备。
   // 只在线无历史的设备也进入列表（首次会话为空详情，方案第 2 节核心交付 1）。
-  final peerKeys = <String>{...peerByPeerKey.keys, ...deviceByPeerKey.keys};
+  final peerKeys = <String>{...peerByPeerKey.keys, ...deviceByPeerKey.keys, ...favoriteByPeerKey.keys};
 
   final views = <ConversationPeerView>[];
   for (final peerKey in peerKeys) {
     final device = deviceByPeerKey[peerKey];
     final historyPeer = peerByPeerKey[peerKey];
+    final favorite = favoriteByPeerKey[peerKey];
 
     // 在线信息优先于历史记录：alias/deviceType 取最近一次观察结果
-    final alias = device?.alias ?? historyPeer?.alias ?? '?';
+    final alias = favorite?.customAlias == true ? favorite!.alias : device?.alias ?? historyPeer?.alias ?? favorite?.alias ?? '?';
     final deviceType = device?.deviceType ?? historyPeer?.deviceType ?? DeviceType.mobile;
 
     views.add(
@@ -127,6 +137,7 @@ List<ConversationPeerView> buildConversationPeerViews({
         alias: alias,
         deviceType: deviceType,
         online: device != null,
+        isFavorite: favorite != null,
         device: device,
         lastEntry: lastEntryByPeer[peerKey],
         entryCount: countByPeer[peerKey] ?? 0,
@@ -169,11 +180,13 @@ final conversationPeerViewsProvider = ViewProvider((ref) {
   final nearby = ref.watch(nearbyDevicesProvider);
   final sendSessions = ref.watch(sendProvider);
   final serverState = ref.watch(serverProvider);
+  final favorites = ref.watch(favoritesProvider);
 
   return buildConversationPeerViews(
     conversation: conversation,
     nearby: nearby,
     sendSessions: sendSessions,
     serverState: serverState,
+    favorites: favorites,
   );
 });

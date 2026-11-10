@@ -18,8 +18,11 @@ class ConversationAttachmentCache {
   bool _closed = false;
 
   final List<Uint8List> _bookmarks = [];
+  final List<ConversationAttachmentCache> _children = [];
 
-  bool get hasFiles => _directory != null || _bookmarks.isNotEmpty;
+  bool get hasFiles => _directory != null || _bookmarks.isNotEmpty || _children.isNotEmpty;
+
+  void retain(ConversationAttachmentCache cache) => _children.add(cache);
 
   Future<void> holdBookmark(Uint8List bookmark) async {
     if (await DesktopDrop.instance.startAccessingSecurityScopedResource(bookmark: bookmark)) {
@@ -64,6 +67,12 @@ class ConversationAttachmentCache {
   }
 
   Future<void> _deleteIfUnused() async {
+    if (_closed && _readers == 0) {
+      for (final child in _children) {
+        child.close();
+      }
+      _children.clear();
+    }
     if (_closed && _readers == 0 && _bookmarks.isNotEmpty) {
       final bookmarks = List<Uint8List>.of(_bookmarks);
       _bookmarks.clear();

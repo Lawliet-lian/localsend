@@ -148,6 +148,26 @@ class AppDelegate: FlutterAppDelegate {
             /// Any call to the channel is dropped until methodChannelInitialized is called from Flutter
             setupPendingItemsObservation()
             result(nil)
+        case "pickConversationAttachments":
+            let panel = NSOpenPanel()
+            panel.canChooseFiles = true
+            panel.canChooseDirectories = true
+            panel.allowsMultipleSelection = true
+            panel.begin { response in
+                guard response == .OK else {
+                    result([])
+                    return
+                }
+                do {
+                    let items = try panel.urls.map { url -> [String: Any] in
+                        let bookmark = try url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
+                        return ["path": url.path, "bookmark": FlutterStandardTypedData(bytes: bookmark)]
+                    }
+                    result(items)
+                } catch {
+                    result(FlutterError(code: "PICK_FAILED", message: error.localizedDescription, details: nil))
+                }
+            }
         case "setupStatusBar":
             let i18n = call.arguments as! [String: String]
             setupStatusBarItem(i18n: i18n)

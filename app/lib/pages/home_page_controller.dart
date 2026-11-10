@@ -39,9 +39,8 @@ class ChangeTabAction extends ReduxAction<HomePageController, HomePageVm> with G
   HomePageVm reduce() {
     state.controller.jumpToPage(tab.index);
 
-    // 切到会话页时自动刷新设备发现：会话列表的“在线”来自 nearbyDevicesProvider，
-    // 不主动扫描会一直显示离线。fire-and-forget，不阻塞 tab 切换；刷新内部带在途扫描守卫。
-    if (tab == HomeTab.conversation) {
+    // 会话页和发送页共享设备状态；进入时刷新收藏和附近设备。
+    if (tab == HomeTab.conversation || tab == HomeTab.send) {
       // ignore: discarded_futures
       global.dispatchAsync(RefreshConversationDevices());
     }

@@ -23,6 +23,7 @@ import 'package:localsend_app/provider/persistence_provider.dart';
 import 'package:localsend_app/provider/selection/selected_sending_files_provider.dart';
 import 'package:localsend_app/provider/transfer_presentation_provider.dart';
 import 'package:localsend_app/util/native/conversation_attachment_cache.dart';
+import 'package:localsend_app/util/native/file_picker.dart';
 import 'package:localsend_app/widget/conversation/conversation_receive_card.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/model/dto/file_dto.dart';
@@ -109,18 +110,19 @@ class _RecordingSendNotifier extends SendNotifier {
 /// 替换真实附件协调：只记录 pickAndSend 调用（真实实现会打开原生 picker 弹层），
 /// 并可注入 picking 状态验证选择器期间的发送/切设备锁。
 class _RecordingAttachmentService extends ConversationAttachmentService {
-  final picks = <Device>[];
+  final picks = <String>[];
 
   void seedPicking(bool value) {
     state = ConversationAttachmentState(picking: value);
   }
 
   @override
-  Future<void> pickAndSend(
+  Future<void> pickToDraft(
     BuildContext context, {
-    required Device target,
+    required String peerKey,
+    FilePickerOption? option,
   }) async {
-    picks.add(target);
+    picks.add(peerKey);
   }
 }
 
@@ -341,7 +343,7 @@ void main() {
     await tester.pump();
 
     // 初始单栏列表
-    expect(find.byType(ListTile), findsOneWidget);
+    expect(find.text('Real Device'), findsOneWidget);
 
     await tester.tap(find.text('Real Device'));
     await tester.pumpAndSettle();
@@ -354,7 +356,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 返回列表（backToList 只收起详情；选中高亮保留在 provider 内）
-    expect(find.byType(ListTile), findsOneWidget);
+    expect(find.text('Real Device'), findsOneWidget);
     expect(find.text('injected message'), findsNothing);
   });
 
@@ -627,7 +629,7 @@ void main() {
     await tester.pump();
 
     expect(attachment.picks.length, 1);
-    expect(attachment.picks.single.fingerprint, 'AA:BB');
+    expect(attachment.picks.single, 'fp:aaa');
   });
 
   testWidgets('C1 旧发送页有选件时会话仍可选附件', (tester) async {

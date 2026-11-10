@@ -24,6 +24,7 @@ class DiscoveryService {
 
   final Ref _ref;
   RsDiscovery? _discovery;
+  Completer<void> _ready = Completer<void>();
   Completer<void> _retryCompleter = Completer();
   bool _listening = false;
 
@@ -95,6 +96,7 @@ class DiscoveryService {
       }
 
       _discovery = discovery;
+      if (!_ready.isCompleted) _ready.complete();
 
       // Tell everyone in the network that I am online.
       unawaited(discovery.announce());
@@ -106,6 +108,7 @@ class DiscoveryService {
       }
 
       _discovery = null;
+      _ready = Completer<void>();
 
       if (_restartRequested) {
         // The stream ended because [restartListener] stopped the discovery.
@@ -177,9 +180,13 @@ class DiscoveryService {
     required bool https,
     required Duration grace,
   }) async {
+    if (_discovery == null) {
+      await _ready.future.timeout(const Duration(seconds: 10), onTimeout: () {});
+    }
     final discovery = _discovery;
     if (discovery == null) {
-      throw StateError('Discovery is not running');
+      _logger.warning('Discovery is not ready, skipping staged scan');
+      return;
     }
 
     final protocol = https ? rust_model.ProtocolType.https : rust_model.ProtocolType.http;

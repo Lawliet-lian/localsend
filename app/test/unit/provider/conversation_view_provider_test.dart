@@ -1,4 +1,5 @@
 import 'package:localsend_app/model/conversation/conversation_models.dart';
+import 'package:localsend_app/model/persistence/favorite_device.dart';
 import 'package:localsend_app/model/state/nearby_devices_state.dart';
 import 'package:localsend_app/model/state/send/send_session_state.dart';
 import 'package:localsend_app/model/state/server/receive_session_state.dart';
@@ -100,6 +101,25 @@ void main() {
   }
 
   group('合并规则（P3 门槛）', () {
+    test('收藏按指纹分组，离线且没有历史的收藏也显示', () {
+      final favorites = [
+        const FavoriteDevice(id: '1', fingerprint: 'aaAA', ip: '10.0.0.1', port: 53317, alias: 'Saved'),
+        const FavoriteDevice(id: '2', fingerprint: 'BBBB', ip: '10.0.0.2', port: 53317, alias: 'Offline'),
+      ];
+      final views = buildConversationPeerViews(
+        conversation: const ConversationState(),
+        nearby: nearby([device('AAAA'), device('CCCC')]),
+        sendSessions: const {},
+        favorites: favorites,
+      );
+      expect(views.length, 3);
+      expect(views.singleWhere((v) => v.peerKey == 'fp:aaaa').isFavorite, isTrue);
+      final offline = views.singleWhere((v) => v.peerKey == 'fp:bbbb');
+      expect(offline.isFavorite, isTrue);
+      expect(offline.online, isFalse);
+      expect(offline.alias, 'Offline');
+      expect(views.singleWhere((v) => v.peerKey == 'fp:cccc').isFavorite, isFalse);
+    });
     test('同指纹不同 IP 的历史与在线设备合并为一个会话，取最新 Device', () {
       final views = buildConversationPeerViews(
         conversation: ConversationState(peers: [historyPeer('AAAA')], entries: []),

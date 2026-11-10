@@ -8,12 +8,14 @@ import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/conversation/conversation_models.dart';
 import 'package:localsend_app/model/conversation/transfer_presentation.dart';
 import 'package:localsend_app/model/cross_file.dart';
+import 'package:localsend_app/provider/conversation_file_draft_provider.dart';
 import 'package:localsend_app/provider/conversation_view_provider.dart';
 import 'package:localsend_app/provider/network/send_provider.dart';
 import 'package:localsend_app/provider/selection/selected_sending_files_provider.dart';
 import 'package:localsend_app/util/native/conversation_attachment_cache.dart';
 import 'package:localsend_app/util/native/cross_file_converters.dart';
 import 'package:localsend_app/util/native/file_picker.dart';
+import 'package:localsend_app/util/native/macos_channel.dart' as macos;
 import 'package:localsend_app/util/native/platform_check.dart';
 import 'package:localsend_app/widget/dialogs/add_file_dialog.dart';
 import 'package:localsend_isolates/model/device.dart';
@@ -49,39 +51,65 @@ class ConversationAttachmentService extends Notifier<ConversationAttachmentState
   Future<void> pickAndSendOption(BuildContext context, {required Device target, required FilePickerOption option}) =>
       _pickAndSend(context, target: target, option: option);
 
-  Future<void> sendDroppedFiles(BuildContext context, {required Device target, required List<DropItem> files}) =>
-      _pickAndSend(context, target: target, droppedFiles: files);
+  Future<void> pickToDraft(BuildContext context, {required String peerKey, FilePickerOption? option}) async {
+    if (state.picking) return;
+    state = const ConversationAttachmentState(picking: true);
+    final cache = ConversationAttachmentCache();
+    try {
+      final pending = option != null
+          ? _pickOption(context, cache, option)
+          : checkPlatform([TargetPlatform.macOS])
+          ? _pickMacAttachments(cache)
+          : pickFiles(context, cache);
+      final files = await pending;
+      ref.notifier(conversationFileDraftProvider).addPicked(peerKey, files, cache);
+    } catch (error) {
+      cache.close();
+      _logger.warning('Failed to pick attachment', error);
+    } finally {
+      state = const ConversationAttachmentState(picking: false);
+    }
+  }
 
-  Future<void> _pickAndSend(BuildContext context, {required Device target, FilePickerOption? option, List<DropItem>? droppedFiles}) async {
+  Future<void> addDroppedFilesToDraft(BuildContext context, {required String peerKey, required List<DropItem> files}) async {
     if (state.picking) {
-      if (droppedFiles != null && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.conversation.dropFailed)));
-      }
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.conversation.dropFailed)));
       return;
     }
+    state = const ConversationAttachmentState(picking: true);
+    final cache = ConversationAttachmentCache();
+    try {
+      final selected = await convertDroppedFiles(files, cache);
+      if (selected.isEmpty) {
+        cache.close();
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.conversation.dropFailed)));
+        return;
+      }
+      ref.notifier(conversationFileDraftProvider).addPicked(peerKey, selected, cache);
+    } catch (error) {
+      cache.close();
+      _logger.warning('Failed to add dropped attachments', error);
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.conversation.dropFailed)));
+    } finally {
+      state = const ConversationAttachmentState(picking: false);
+    }
+  }
+
+  Future<void> _pickAndSend(BuildContext context, {required Device target, FilePickerOption? option}) async {
+    if (state.picking) return;
 
     state = const ConversationAttachmentState(picking: true);
     final cache = ConversationAttachmentCache();
     var submitted = false;
     try {
-      final pendingFiles = droppedFiles != null
-          ? _convertDroppedFiles(droppedFiles, cache)
-          : option == null
-          ? pickFiles(context, cache)
-          : _pickOption(context, cache, option);
+      final pendingFiles = option == null ? pickFiles(context, cache) : _pickOption(context, cache, option);
       final files = await pendingFiles;
       if (files.isEmpty || !context.mounted || target.fingerprint.trim().isEmpty) {
-        if (droppedFiles != null && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.conversation.dropFailed)));
-        }
         return;
       }
       final peerKey = ConversationPeer.peerKeyFor(target.fingerprint);
       final currentTarget = ref.read(conversationPeerViewsProvider).firstWhereOrNull((view) => view.peerKey == peerKey)?.device;
       if (currentTarget == null) {
-        if (droppedFiles != null && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.conversation.offline)));
-        }
         return;
       }
 
@@ -100,9 +128,6 @@ class ConversationAttachmentService extends Notifier<ConversationAttachmentState
       submitted = true;
     } catch (e) {
       _logger.warning('Failed to pick and send attachment', e);
-      if (droppedFiles != null && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.conversation.dropFailed)));
-      }
     } finally {
       if (!submitted) {
         cache.close();
@@ -111,7 +136,8 @@ class ConversationAttachmentService extends Notifier<ConversationAttachmentState
     }
   }
 
-  Future<List<CrossFile>> _convertDroppedFiles(List<DropItem> files, ConversationAttachmentCache cache) async {
+  @visibleForTesting
+  Future<List<CrossFile>> convertDroppedFiles(List<DropItem> files, ConversationAttachmentCache cache) async {
     final selection = RefenaContainer();
     try {
       final regularFiles = <DropItem>[];
@@ -156,6 +182,31 @@ class ConversationAttachmentService extends Notifier<ConversationAttachmentState
     }
 
     return _pickOption(context, cache, option);
+  }
+
+  Future<List<CrossFile>> _pickMacAttachments(ConversationAttachmentCache cache) async {
+    final items = await macos.pickConversationAttachments();
+    final selection = RefenaContainer();
+    try {
+      final files = <File>[];
+      for (final (path, bookmark) in items) {
+        await cache.holdBookmark(bookmark);
+        final type = await FileSystemEntity.type(path);
+        if (type == FileSystemEntityType.directory) {
+          await selection.redux(selectedSendingFilesProvider).dispatchAsync(AddDirectoryAction(path));
+        } else if (type == FileSystemEntityType.file) {
+          files.add(File(path));
+        } else {
+          throw FileSystemException('Cannot read selected item', path);
+        }
+      }
+      if (files.isNotEmpty) {
+        await selection.redux(selectedSendingFilesProvider).dispatchAsync(AddFilesAction(files: files, converter: CrossFileConverters.convertFile));
+      }
+      return cache.stage(List<CrossFile>.of(selection.read(selectedSendingFilesProvider)), copyImportedFiles: false);
+    } finally {
+      selection.disposeContainer();
+    }
   }
 
   Future<List<CrossFile>> _pickOption(BuildContext context, ConversationAttachmentCache cache, FilePickerOption option) async {

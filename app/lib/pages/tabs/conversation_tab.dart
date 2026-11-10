@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/conversation/conversation_models.dart';
 import 'package:localsend_app/model/conversation/conversation_receive_card_vm.dart';
+import 'package:localsend_app/model/conversation/file_draft_group.dart';
 import 'package:localsend_app/model/conversation/transfer_presentation.dart';
 import 'package:localsend_app/model/cross_file.dart';
 import 'package:localsend_app/provider/conversation_attachment_provider.dart';
@@ -107,7 +108,6 @@ class ConversationTab extends StatelessWidget {
     final refreshing = context.watch(conversationRefreshingProvider);
 
     // picking 标志用于选择器打开期间锁住附件、文字发送与设备切换。
-    final attachmentEnabled = context.watch(conversationAttachmentEnabledProvider);
     final picking = context.watch(conversationAttachmentProvider.select((s) => s.picking));
     final selectedDevice = views.firstWhereOrNull((v) => v.peerKey == ui.selectedPeerKey)?.device;
 
@@ -131,7 +131,7 @@ class ConversationTab extends StatelessWidget {
       dropEnabled: dropEnabled,
       onDropFiles: selectedDevice == null
           ? null
-          : (files) => ref.notifier(conversationAttachmentProvider).sendDroppedFiles(context, target: selectedDevice, files: files),
+          : (files) => ref.notifier(conversationAttachmentProvider).addDroppedFilesToDraft(context, peerKey: ui.selectedPeerKey!, files: files),
       views: views,
       entries: entries,
       entryBuilder: (entry) => ConversationSendEntryTile(entry: entry),
@@ -199,18 +199,22 @@ class ConversationTab extends StatelessWidget {
         if (peerKey == null) return;
         final files = List<CrossFile>.of(ref.read(conversationFileDraftProvider)[peerKey] ?? const []);
         if (index < files.length) {
-          final removed = files.removeAt(index);
-          if (Platform.isAndroid && removed.path != null) unawaited(_deleteStagedFile(removed.path!));
+          final group = groupFileDrafts(files).firstWhere((group) => group.indices.contains(index));
+          for (final index in group.indices.reversed) {
+            final removed = files.removeAt(index);
+            if (Platform.isAndroid && removed.path != null) unawaited(_deleteStagedFile(removed.path!));
+          }
         }
         ref.notifier(conversationFileDraftProvider).setFiles(peerKey, files);
       },
       onSendFiles: (text, image, files) {
         final peerKey = ui.selectedPeerKey;
         if (peerKey == null || selectedDevice == null) return;
+        final cache = ref.notifier(conversationFileDraftProvider).takeCache(peerKey);
         ref.notifier(conversationFileDraftProvider).setFiles(peerKey, []);
         if (image != null) ref.notifier(conversationImageDraftProvider).setImage(peerKey, null);
         final view = views.firstWhere((view) => view.peerKey == peerKey);
-        unawaited(_sendFilesAndText(ref, selectedDevice, view, files, image, text));
+        unawaited(_sendFilesAndText(ref, selectedDevice, view, files, image, text, cache));
       },
       onImageDraftChanged: (image) {
         final peerKey = ui.selectedPeerKey;
@@ -224,15 +228,14 @@ class ConversationTab extends StatelessWidget {
           unawaited(_sendImageAndText(ref, selectedDevice, view, image, text));
         }
       },
-      // P9b：附件即选即发——设备离线（device 为 null）时不传回调，按钮不出现；
-      // 门槛/锁/快照/发送编排全部在协调 provider，本层只转发
+      // 附件先加入当前会话的草稿；设备离线时不显示选择按钮。
       onPickAttachment: selectedDevice == null
           ? null
-          : () => unawaited(ref.notifier(conversationAttachmentProvider).pickAndSend(context, target: selectedDevice)),
+          : () => unawaited(ref.notifier(conversationAttachmentProvider).pickToDraft(context, peerKey: ui.selectedPeerKey!)),
       onPickAttachmentOption: selectedDevice == null
           ? null
-          : (option) => unawaited(ref.notifier(conversationAttachmentProvider).pickAndSendOption(context, target: selectedDevice, option: option)),
-      attachmentEnabled: attachmentEnabled,
+          : (option) => unawaited(ref.notifier(conversationAttachmentProvider).pickToDraft(context, peerKey: ui.selectedPeerKey!, option: option)),
+      attachmentEnabled: !picking,
       sendingLocked: picking,
       // P7c：卡片与按钮回调全部转发 serverProvider 原有动作；重复点击安全：
       // acceptFileRequest/declineFileRequest 内部已有 status != waiting 的 guard（门槛）
@@ -246,7 +249,15 @@ class ConversationTab extends StatelessWidget {
     );
   }
 
-  Future<void> _sendFilesAndText(Ref ref, Device device, ConversationPeerView view, List<CrossFile> files, Uint8List? image, String text) async {
+  Future<void> _sendFilesAndText(
+    Ref ref,
+    Device device,
+    ConversationPeerView view,
+    List<CrossFile> files,
+    Uint8List? image,
+    String text,
+    ConversationAttachmentCache? draftCache,
+  ) async {
     if (image != null) {
       final extension = determineImageType(image);
       files.add(
@@ -264,6 +275,7 @@ class ConversationTab extends StatelessWidget {
       );
     }
     final cache = ConversationAttachmentCache();
+    if (draftCache != null) cache.retain(draftCache);
     try {
       final staged = await cache.stage(files, copyImportedFiles: Platform.isAndroid);
       await ref

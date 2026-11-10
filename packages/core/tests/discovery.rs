@@ -10,7 +10,7 @@
 
 use localsend::crypto::cert::generate_self_signed;
 use localsend::discovery::{
-    self, DeviceIdentity, DiscoveryConfig, DiscoveryEvent, DiscoveryHandle,
+    self, DeviceIdentity, DiscoveryConfig, DiscoveryEvent, DiscoveryHandle, HttpChannel,
 };
 use localsend::http::server::web::WebConfig;
 use localsend::http::server::{start_with_port, ServerConfigV2, TlsConfig};
@@ -178,6 +178,55 @@ fn skip(reason: &str) {
 }
 
 #[tokio::test]
+async fn known_addresses_retry_with_the_other_protocol() {
+    let multicast_port = NEXT_MULTICAST_PORT.fetch_add(1, Ordering::Relaxed);
+    let Some(instance) = start_instance("Finder", multicast_port, announce_port()).await else {
+        return skip("no network interface available for multicast");
+    };
+    let cert = generate_self_signed().expect("Failed to generate an identity");
+    let (tls_port, _tls_stop) = start_register_server(
+        "TLS",
+        &cert.fingerprint,
+        Some(TlsConfig {
+            cert: cert.certificate_pem.clone(),
+            private_key: cert.private_key_pem.clone(),
+        }),
+    )
+    .await;
+    let (http_port, _http_stop) = start_register_server("HTTP", "http-target", None).await;
+    let found = instance
+        .handle
+        .discover_known_http_channels(vec![
+            HttpChannel {
+                host: "127.0.0.1".into(),
+                port: tls_port,
+                protocol: ProtocolType::Http,
+            },
+            HttpChannel {
+                host: "127.0.0.1".into(),
+                port: http_port,
+                protocol: ProtocolType::Https,
+            },
+        ])
+        .await
+        .expect("Discovery failed");
+    assert_eq!(found.len(), 2);
+    for (fingerprint, protocol) in [
+        (&cert.fingerprint[..], ProtocolType::Https),
+        ("http-target", ProtocolType::Http),
+    ] {
+        let device = instance
+            .handle
+            .device_by_fingerprint(fingerprint)
+            .expect("Device not found");
+        assert_eq!(
+            device.device.http().expect("HTTP channel missing").protocol,
+            protocol
+        );
+    }
+}
+
+#[tokio::test]
 async fn test_targeted_discovery_stores_and_emits_device() {
     let multicast_port = NEXT_MULTICAST_PORT.fetch_add(1, Ordering::Relaxed);
     let (server_port, _server_stop) =
@@ -265,7 +314,8 @@ async fn test_subnet_scan_finds_device_on_loopback() {
     let (server_port, _server_stop) =
         start_register_server("ScanTarget", "scan-fingerprint", None).await;
 
-    let Some(mut instance) = start_instance("Scanner", multicast_port, announce_port()).await else {
+    let Some(mut instance) = start_instance("Scanner", multicast_port, announce_port()).await
+    else {
         return skip("no network interface available for multicast");
     };
 
@@ -415,7 +465,8 @@ async fn test_announcement_is_answered_and_device_stored() {
 
     // The receiver answers the announcement with a register request to the
     // announcer's HTTP server, so the announcer needs a real one.
-    let Some(mut receiver) = start_instance("Receiver", multicast_port, announce_port()).await else {
+    let Some(mut receiver) = start_instance("Receiver", multicast_port, announce_port()).await
+    else {
         return skip("no network interface available for multicast");
     };
     let announcer_cert = generate_self_signed().expect("Failed to generate an identity");
