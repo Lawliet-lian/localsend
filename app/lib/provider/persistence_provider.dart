@@ -62,6 +62,13 @@ const _favorites = 'ls_favorites';
 // Conversation history (P8): independent key, never rewrites the legacy receive-history key.
 // Stored as one JSON blob with its own schema version (see ConversationHistoryDto).
 const _conversationHistory = 'ls_conversation_history_v1';
+const _conversationNavigationWidth = 'ls_conversation_navigation_width';
+const _conversationListWidth = 'ls_conversation_list_width';
+const _conversationNavigationCollapsed = 'ls_conversation_navigation_collapsed';
+const _conversationListCollapsed = 'ls_conversation_list_collapsed';
+const _lastHomeTab = 'ls_last_home_tab';
+const _lastConversationPeer = 'ls_last_conversation_peer';
+const _conversationDetailOpen = 'ls_conversation_detail_open';
 
 // App Window Offset and Size info
 const _windowOffsetX = 'ls_window_offset_x';
@@ -112,6 +119,20 @@ final persistenceProvider = Provider<PersistenceService>((ref) {
 /// This service abstracts the persistence layer.
 class PersistenceService {
   final SharedPreferences _prefs;
+  double getConversationNavigationWidth() => _prefs.getDouble(_conversationNavigationWidth) ?? 220;
+  double getConversationListWidth() => _prefs.getDouble(_conversationListWidth) ?? 260;
+  Future<void> setConversationNavigationWidth(double value) async => _prefs.setDouble(_conversationNavigationWidth, value);
+  Future<void> setConversationListWidth(double value) async => _prefs.setDouble(_conversationListWidth, value);
+  bool getConversationNavigationCollapsed() => _prefs.getBool(_conversationNavigationCollapsed) ?? false;
+  bool getConversationListCollapsed() => _prefs.getBool(_conversationListCollapsed) ?? false;
+  String? getLastHomeTab() => _prefs.getString(_lastHomeTab);
+  String? getLastConversationPeer() => _prefs.getString(_lastConversationPeer);
+  bool getConversationDetailOpen() => _prefs.getBool(_conversationDetailOpen) ?? true;
+  Future<void> setConversationNavigationCollapsed(bool value) async => _prefs.setBool(_conversationNavigationCollapsed, value);
+  Future<void> setConversationListCollapsed(bool value) async => _prefs.setBool(_conversationListCollapsed, value);
+  Future<void> setLastHomeTab(String value) async => _prefs.setString(_lastHomeTab, value);
+  Future<void> setLastConversationPeer(String value) async => _prefs.setString(_lastConversationPeer, value);
+  Future<void> setConversationDetailOpen(bool value) async => _prefs.setBool(_conversationDetailOpen, value);
   final bool isFirstAppStart;
 
   PersistenceService._(this._prefs, this.isFirstAppStart);

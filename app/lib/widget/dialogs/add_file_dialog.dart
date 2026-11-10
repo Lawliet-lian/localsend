@@ -41,11 +41,26 @@ class AddFileDialog extends StatelessWidget {
     if (checkPlatformIsDesktop()) {
       return showDialog<FilePickerOption>(context: context, builder: (context) => _desktopDialog(context, picker(context)));
     }
-    return context.pushBottomSheet<FilePickerOption, CustomBottomSheet>(
-      () => CustomBottomSheet(
-        title: t.dialogs.addFile.title,
-        description: t.dialogs.addFile.content,
-        child: Builder(builder: picker),
+    // 移动端：不走 routerino 的 pushBottomSheet，直接调用 showModalBottomSheet 以便控制焦点：
+    // - requestFocus: false：弹层入栈时不抢占焦点，会话输入框保持聚焦，软键盘不会被收起；
+    //   键盘高度保持不变，聊天区无需随键盘收起逐帧重排，避免与弹层上滑动画叠加造成卡顿；
+    // - 外层 Padding 按 viewInsets 把弹层整体抬到键盘上方，否则会被键盘遮住；
+    // - isScrollControlled: true 解除默认 9/16 屏高上限，避免叠加键盘高度后内容被压缩溢出；
+    // 其余参数（透明背景、无阴影、路由名）与 routerino 的 pushBottomSheet 保持一致。
+    return showModalBottomSheet<FilePickerOption>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      isScrollControlled: true,
+      requestFocus: false,
+      routeSettings: const RouteSettings(name: 'CustomBottomSheet'),
+      builder: (routeContext) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(routeContext).bottom),
+        child: CustomBottomSheet(
+          title: t.dialogs.addFile.title,
+          description: t.dialogs.addFile.content,
+          child: picker(routeContext),
+        ),
       ),
     );
   }

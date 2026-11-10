@@ -78,7 +78,7 @@ class IsolateDiscoverySubnetScanAction extends ReduxActionWithResult<IsolateCont
 /// finished; the found devices arrive on the [IsolateDiscoveryListenAction]
 /// stream.
 class IsolateDiscoveryStagedScanAction extends ReduxActionWithResult<IsolateController, ParentIsolateState, Stream<Device>> {
-  final List<(String, int)> favorites;
+  final List<(String, int, bool)> favorites;
   final List<String> networkInterfaces;
   final int port;
   final bool https;

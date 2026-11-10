@@ -28,6 +28,21 @@ static void platform_method_call_cb(FlMethodChannel* channel,
   if (strcmp(fl_method_call_get_name(method_call), "isWayland") == 0) {
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(
         fl_value_new_bool(GPOINTER_TO_INT(user_data))));
+  } else if (strcmp(fl_method_call_get_name(method_call), "copyImage") == 0) {
+    FlValue* args = fl_method_call_get_args(method_call);
+    FlValue* path = args ? fl_value_lookup_string(args, "path") : nullptr;
+    g_autoptr(GError) error = nullptr;
+    g_autoptr(GdkPixbuf) image = path && fl_value_get_type(path) == FL_VALUE_TYPE_STRING
+        ? gdk_pixbuf_new_from_file(fl_value_get_string(path), &error) : nullptr;
+    if (image) {
+      GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+      gtk_clipboard_set_image(clipboard, image);
+      gtk_clipboard_store(clipboard);
+      response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+    } else {
+      response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+          "copy_image_failed", error ? error->message : "Invalid image path", nullptr));
+    }
   } else {
     response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
   }

@@ -41,11 +41,13 @@ pub const DEFAULT_PORT: u16 = 53317;
 /// Delays before each message of an announcement burst.
 ///
 /// A single datagram is easily lost and devices that just joined the network
-/// may not be ready to answer yet, so an announcement is repeated.
+/// may not be ready to answer yet, so an announcement is repeated. The tail
+/// delay is kept short so a staged scan (which waits for the whole burst)
+/// returns sooner once peers have answered.
 const ANNOUNCE_DELAYS: [Duration; 3] = [
     Duration::from_millis(100),
     Duration::from_millis(500),
-    Duration::from_millis(2000),
+    Duration::from_millis(1000),
 ];
 
 /// The largest datagram that is read at once. Announcements are far smaller;

@@ -11,30 +11,33 @@ class ConversationList extends StatelessWidget {
   final List<ConversationPeerView> views;
   final String? selectedPeerKey;
   final ValueChanged<String> onTap;
+  final VoidCallback? onRefresh;
+  final bool refreshing;
+  final VoidCallback? onCollapse;
 
   const ConversationList({
     super.key,
     required this.views,
     required this.selectedPeerKey,
     required this.onTap,
+    this.onRefresh,
+    this.refreshing = false,
+    this.onCollapse,
   });
 
   @override
   Widget build(BuildContext context) {
+    Widget content;
     if (views.isEmpty) {
       // 空态：没有任何可发现的设备或历史会话
-      return Center(
+      content = Center(
         child: Text(
           t.conversation.empty,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.outline),
         ),
       );
-    }
-
-    // ListTile 需要 Material 祖先；组件自身不假设被 Scaffold 包裹，主动提供透明 Material
-    return Material(
-      type: MaterialType.transparency,
-      child: ListView.separated(
+    } else {
+      content = ListView.separated(
         itemCount: views.length,
         separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (context, index) {
@@ -45,6 +48,31 @@ class ConversationList extends StatelessWidget {
             onTap: () => onTap(view.peerKey),
           );
         },
+      );
+    }
+    return Material(
+      type: MaterialType.transparency,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 16, end: 4),
+            child: Row(
+              children: [
+                Expanded(child: Text(t.conversation.title, style: Theme.of(context).textTheme.titleMedium)),
+                if (onRefresh != null)
+                  IconButton(
+                    tooltip: t.sendTab.scan,
+                    onPressed: refreshing ? null : onRefresh,
+                    icon: refreshing
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.refresh),
+                  ),
+                if (onCollapse != null) IconButton(tooltip: t.conversation.collapse, onPressed: onCollapse, icon: const Icon(Icons.first_page)),
+              ],
+            ),
+          ),
+          Expanded(child: content),
+        ],
       ),
     );
   }

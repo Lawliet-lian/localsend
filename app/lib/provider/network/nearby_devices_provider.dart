@@ -199,6 +199,7 @@ class StartStagedScan extends AsyncReduxAction<NearbyDevicesService, NearbyDevic
   final int port;
   final bool https;
   final Duration grace;
+  final bool revalidateKnown;
 
   StartStagedScan({
     required this.favorites,
@@ -206,29 +207,54 @@ class StartStagedScan extends AsyncReduxAction<NearbyDevicesService, NearbyDevic
     required this.port,
     required this.https,
     required this.grace,
+    this.revalidateKnown = false,
   });
 
   @override
   Future<NearbyDevicesState> reduce() async {
     dispatch(_SetRunningFavoriteScanAction(true));
 
-    // The found devices arrive on the [StartDiscoveryListener] stream;
-    // this stream only signals when every stage has finished.
-    await external(notifier._isolateController)
-        .dispatchTakeResult(
-          IsolateDiscoveryStagedScanAction(
-            favorites: favorites.map((e) => (e.ip, e.port)).toList(),
-            networkInterfaces: interfaces,
-            port: port,
-            https: https,
-            grace: grace,
-          ),
-        )
-        .drain<void>();
+    final known = revalidateKnown ? Map<String, Device>.of(state.devices) : <String, Device>{};
+    final channels = <(String, int, bool)>{
+      for (final favorite in favorites) (favorite.ip, favorite.port, https),
+      for (final device in known.values) ...[
+        if (device.ip != null) (device.ip!, device.port, device.https),
+        for (final channel in device.channels.whereType<HttpChannel>()) (channel.host, channel.port, channel.https),
+      ],
+    };
+    final before = <String, DateTime?>{};
+    try {
+      for (final fingerprint in known.keys) {
+        final logs = await external(notifier._isolateController).dispatchAsyncTakeResult(IsolateDiscoveryDeviceLogsAction(fingerprint: fingerprint));
+        before[fingerprint] = logs.isEmpty ? null : logs.last.timestamp;
+      }
 
-    return state.copyWith(
-      runningFavoriteScan: false,
-    );
+      // The found devices arrive on the [StartDiscoveryListener] stream;
+      // this stream only signals when every stage has finished.
+      await external(notifier._isolateController)
+          .dispatchTakeResult(
+            IsolateDiscoveryStagedScanAction(
+              favorites: channels.toList(),
+              networkInterfaces: interfaces,
+              port: port,
+              https: https,
+              grace: grace,
+            ),
+          )
+          .drain<void>();
+
+      final stale = <String>{};
+      for (final entry in known.entries) {
+        if (entry.value.ip == null && !entry.value.channels.any((channel) => channel is HttpChannel)) continue;
+        final logs = await external(notifier._isolateController).dispatchAsyncTakeResult(IsolateDiscoveryDeviceLogsAction(fingerprint: entry.key));
+        final latest = logs.isEmpty ? null : logs.last.timestamp;
+        if (latest == before[entry.key] && identical(state.devices[entry.key], entry.value)) stale.add(entry.key);
+      }
+      return state.copyWith(devices: Map.of(state.devices)..removeWhere((key, _) => stale.contains(key)), runningFavoriteScan: false);
+    } catch (_) {
+      dispatch(_SetRunningFavoriteScanAction(false));
+      rethrow;
+    }
   }
 }
 

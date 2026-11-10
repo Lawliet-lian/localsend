@@ -171,7 +171,7 @@ class DiscoveryService {
   /// Found devices arrive on the [startListener] stream; this method returns
   /// once every stage has finished, including the whole announcement burst.
   Future<void> discoverStaged({
-    required List<(String, int)> favorites,
+    required List<(String, int, bool)> favorites,
     required List<String> networkInterfaces,
     required int port,
     required bool https,
@@ -179,14 +179,14 @@ class DiscoveryService {
   }) async {
     final discovery = _discovery;
     if (discovery == null) {
-      _logger.info('Discovery is not running, skipping staged discovery');
-      return;
+      throw StateError('Discovery is not running');
     }
 
     final protocol = https ? rust_model.ProtocolType.https : rust_model.ProtocolType.http;
     await discovery.discoverStaged(
       channels: [
-        for (final (host, port) in favorites) RsDeviceChannel(host: host, port: port, protocol: protocol),
+        for (final (host, port, secure) in favorites)
+          RsDeviceChannel(host: host, port: port, protocol: secure ? rust_model.ProtocolType.https : rust_model.ProtocolType.http),
       ],
       interfaceIps: networkInterfaces,
       port: port,

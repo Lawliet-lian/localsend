@@ -3,6 +3,8 @@ package org.localsend.localsend_app
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ContentResolver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -14,8 +16,10 @@ import android.os.Build
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.provider.Settings
 import android.webkit.MimeTypeMap
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -85,6 +89,82 @@ class MainActivity : FlutterActivity() {
             CHANNEL
         ).setMethodCallHandler { call, result ->
             when (call.method) {
+                "deleteStagedClipboardFile" -> {
+                    try {
+                        val root = File(cacheDir, "conversation_clipboard").canonicalFile
+                        val file = File(call.argument<String>("path")!!).canonicalFile
+                        if (file.parentFile?.parentFile == root) file.parentFile?.deleteRecursively()
+                        result.success(null)
+                    } catch (e: Exception) { result.error("clipboard_cleanup_failed", e.message, null) }
+                }
+                "stageClipboardFiles" -> {
+                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    val clip = clipboard.primaryClip
+                    val uris = if (clip == null) emptyList() else (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
+                    val isSingleImage = uris.size == 1 && try { contentResolver.getType(uris[0])?.startsWith("image/") == true } catch (_: Exception) { false }
+                    if (uris.isEmpty() || isSingleImage) {
+                        result.success(emptyList<String>())
+                    } else Thread {
+                        val staged = mutableListOf<File>()
+                        try {
+                            val root = File(cacheDir, "conversation_clipboard").apply { mkdirs() }
+                            for (uri in uris) {
+                                val name = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                                }?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() && it != "." && it != ".." } ?: "attachment"
+                                val dir = File(root, java.util.UUID.randomUUID().toString()).apply { mkdirs() }
+                                val target = File(dir, name)
+                                staged.add(target)
+                                val input = contentResolver.openInputStream(uri) ?: throw IllegalStateException("Cannot read clipboard file")
+                                input.use { source -> target.outputStream().use { source.copyTo(it) } }
+                            }
+                            runOnUiThread { result.success(staged.map { it.absolutePath }) }
+                        } catch (e: Exception) {
+                            staged.forEach { it.parentFile?.deleteRecursively() }
+                            runOnUiThread { result.error("clipboard_files_failed", e.message, null) }
+                        }
+                    }.start()
+                }
+                "readClipboardImage" -> {
+                    try {
+                        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val clip = clipboard.primaryClip
+                        val uri = if (clip != null && clip.itemCount > 0 && clip.description.hasMimeType("image/*")) clip.getItemAt(0).uri else null
+                        if (uri == null) result.success(null) else Thread {
+                            try {
+                                val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                                runOnUiThread { result.success(bytes) }
+                            } catch (e: Exception) { runOnUiThread { result.error("clipboard_image_failed", e.message, null) } }
+                        }.start()
+                    } catch (e: Exception) { result.error("clipboard_image_failed", e.message, null) }
+                }
+                "copyImage" -> {
+                    val source = call.argument<String>("path")!!
+                    Thread {
+                        try {
+                            val uri = Uri.parse(source)
+                            val extension = MimeTypeMap.getFileExtensionFromUrl(source).lowercase(Locale.ROOT)
+                            val mime = (if (uri.scheme == "content") contentResolver.getType(uri) else null)
+                                ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "image/*"
+                            require(mime.startsWith("image/")) { "Not an image" }
+                            val dir = File(cacheDir, "clipboard").apply { mkdirs() }
+                            val suffix = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime) ?: extension.ifEmpty { "img" }
+                            val target = File.createTempFile("image_", ".$suffix", dir)
+                            try {
+                                val input = if (uri.scheme == "content") contentResolver.openInputStream(uri) else File(source).inputStream()
+                                (input ?: throw IllegalStateException("Cannot read image")).use { stream -> target.outputStream().use { stream.copyTo(it) } }
+                                val shared = FileProvider.getUriForFile(this, "$packageName.clipboard", target)
+                                runOnUiThread {
+                                    try {
+                                        val clip = ClipData.newUri(contentResolver, "Image", shared)
+                                        (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
+                                        result.success(null)
+                                    } catch (e: Exception) { target.delete(); result.error("copy_image_failed", e.message, null) }
+                                }
+                            } catch (e: Exception) { target.delete(); throw e }
+                        } catch (e: Exception) { runOnUiThread { result.error("copy_image_failed", e.message, null) } }
+                    }.start()
+                }
                 "pickDirectory" -> {
                     pendingResult = result
                     openDirectoryPicker(onlyPath = false)

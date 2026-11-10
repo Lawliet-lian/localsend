@@ -35,6 +35,14 @@
         android:requestLegacyExternalStorage="true"
     >
 
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.clipboard"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/clipboard_paths" />
+        </provider>
+
         <!-- localsend: prevent multiple instances by android:launchMode="singleTask" -->
         <activity
             android:name=".MainActivity"

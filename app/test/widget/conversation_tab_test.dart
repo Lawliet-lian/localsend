@@ -34,6 +34,14 @@ import 'package:refena_flutter/refena_flutter.dart';
 
 import '../mocks.mocks.dart';
 
+class _ConversationPersistenceMock extends MockPersistenceService {
+  @override
+  Future<void> setLastConversationPeer(String value) async {}
+
+  @override
+  Future<void> setConversationDetailOpen(bool value) async {}
+}
+
 /// P5 会话入口接线测试 + P6c 文字发送接线测试 + P7c 接收卡片接线测试。
 /// 用 overrideWithBuilder 注入 fake 投影结果，不启动 Rust/isolate（方案 9.1）；
 /// 发送路径用 fake SendNotifier 替换（startSession 真实实现依赖 Rust http）；
@@ -166,13 +174,14 @@ void main() {
     // P8：conversationProvider 现在会读取 persistenceProvider（无 override 则抛异常）。
     // 这里注入一个返回空历史的 mock：init() 走纯内存起点，after() 落盘为 mock no-op，
     // 与旧有"纯内存、不碰磁盘"的接线测试契约等价。
-    final persistence = MockPersistenceService();
+    final persistence = _ConversationPersistenceMock();
     when(persistence.getConversationHistory()).thenReturn(ConversationHistoryDto.empty());
     await tester.pumpWidget(
       RefenaScope(
         overrides: [
           persistenceProvider.overrideWithValue(persistence),
           conversationPeerViewsProvider.overrideWithBuilder((_) => views),
+          conversationRefreshingProvider.overrideWithBuilder((_) => false),
           ...overrides,
         ],
         child: MaterialApp(

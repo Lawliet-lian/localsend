@@ -17,6 +17,7 @@ import 'package:localsend_app/provider/device_info_provider.dart';
 import 'package:localsend_app/provider/file_transfer_provider.dart';
 import 'package:localsend_app/provider/http_provider.dart';
 import 'package:localsend_app/provider/network/conversation_send_recorder.dart';
+import 'package:localsend_app/provider/network/scan_facade.dart';
 import 'package:localsend_app/provider/selection/selected_sending_files_provider.dart';
 import 'package:localsend_app/provider/settings_provider.dart';
 import 'package:localsend_app/provider/transfer_presentation_provider.dart';
@@ -447,6 +448,13 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
         } catch (e) {
           if (state[sessionId]?.status != SessionStatus.waiting) {
             return;
+          }
+          if (e is rust_http.RsHttpClientError_Reqwest) {
+            unawaited(
+              ref.global.dispatchAsync(RefreshConversationDevices()).catchError((Object error) {
+                _logger.warning('Could not refresh devices after send failure', error);
+              }),
+            );
           }
           // P6b：网络/序列化等异常同样是失败终态
           _conversationRecorder.update(sessionId: sessionId, outcome: ConversationOutcome.failed, error: e.humanErrorMessage);

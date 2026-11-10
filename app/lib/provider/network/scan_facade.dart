@@ -11,6 +11,9 @@ import 'package:refena_flutter/refena_flutter.dart';
 /// favorite probes right away, http-based discovery on the subnets only when
 /// nothing was confirmed within 1 second.
 class StartSmartScan extends AsyncGlobalAction {
+  final bool revalidateKnown;
+  StartSmartScan({this.revalidateKnown = false});
+
   /// Maximum number of interfaces to scan.
   /// If there are more interfaces, the first ones will be used or the user needs to select one.
   static const maxInterfaces = 3;
@@ -30,6 +33,7 @@ class StartSmartScan extends AsyncGlobalAction {
             port: settings.port,
             https: settings.https,
             grace: const Duration(seconds: 1),
+            revalidateKnown: revalidateKnown,
           ),
         );
   }
@@ -45,8 +49,7 @@ bool shouldSkipConversationRefresh(NearbyDevicesState nearby) {
 /// 切到会话页时的设备自动刷新。
 ///
 /// 会话列表的“在线”取决于 nearbyDevicesProvider，而它只在扫描后才有设备；
-/// 不主动发现就会一直显示离线。这里复用 [StartSmartScan]（多播通告 + 收藏探测优先，
-/// 1 秒无响应再退化为子网扫描），不清空已有设备以避免“全部离线”的闪烁。
+/// 不主动发现就会一直显示离线。扫描期间保留旧设备，完成后移除未重新确认的 HTTP 设备。
 /// 带在途扫描守卫：快速来回切 tab 时不重复触发重叠扫描。
 class RefreshConversationDevices extends AsyncGlobalAction {
   @override
@@ -55,7 +58,7 @@ class RefreshConversationDevices extends AsyncGlobalAction {
       // 已有扫描在途，跳过本次刷新
       return;
     }
-    await dispatchAsync(StartSmartScan());
+    await dispatchAsync(StartSmartScan(revalidateKnown: true));
   }
 }
 

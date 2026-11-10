@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/conversation/conversation_models.dart';
 import 'package:localsend_app/model/conversation/conversation_receive_card_vm.dart';
+import 'package:localsend_app/model/cross_file.dart';
 import 'package:localsend_app/provider/conversation_view_provider.dart';
 import 'package:localsend_app/util/device_type_ext.dart';
 import 'package:localsend_app/util/native/file_picker.dart';
@@ -13,6 +15,7 @@ import 'package:localsend_app/widget/conversation/conversation_composer.dart';
 import 'package:localsend_app/widget/conversation/conversation_entry_tile.dart';
 import 'package:localsend_app/widget/conversation/conversation_list.dart';
 import 'package:localsend_app/widget/conversation/conversation_receive_card.dart';
+import 'package:localsend_app/widget/conversation/pane_divider.dart';
 import 'package:localsend_app/widget/responsive_builder.dart';
 import 'package:localsend_app/widget/transfer_security_label.dart';
 
@@ -44,6 +47,20 @@ class ConversationPanel extends StatelessWidget {
 
   /// 选中设备；传 null 表示返回列表（窄屏单栏时生效）。
   final ValueChanged<String?> onSelect;
+  final VoidCallback? onRefresh;
+  final bool refreshing;
+  final Uint8List? imageDraft;
+  final ValueChanged<Uint8List?>? onImageDraftChanged;
+  final void Function(String, Uint8List)? onSendImage;
+  final List<CrossFile> fileDrafts;
+  final Future<void> Function(List<String>)? onPasteFiles;
+  final ValueChanged<int>? onRemoveFile;
+  final void Function(String, Uint8List?, List<CrossFile>)? onSendFiles;
+  final double listWidth;
+  final bool listCollapsed;
+  final ValueChanged<bool>? onListCollapsed;
+  final ValueChanged<double>? onListWidthChanged;
+  final VoidCallback? onListResizeEnd;
 
   /// 当前选中设备的文字草稿（接线自 conversationUiProvider 的 per-peerKey 草稿）。
   final String draftText;
@@ -89,6 +106,20 @@ class ConversationPanel extends StatelessWidget {
     this.entryBuilder,
     required this.selectedPeerKey,
     required this.onSelect,
+    this.onRefresh,
+    this.refreshing = false,
+    this.imageDraft,
+    this.onImageDraftChanged,
+    this.onSendImage,
+    this.fileDrafts = const [],
+    this.onPasteFiles,
+    this.onRemoveFile,
+    this.onSendFiles,
+    this.listWidth = 260,
+    this.listCollapsed = false,
+    this.onListCollapsed,
+    this.onListWidthChanged,
+    this.onListResizeEnd,
     required this.draftText,
     required this.onDraftChanged,
     required this.onSendText,
@@ -108,9 +139,6 @@ class ConversationPanel extends StatelessWidget {
   /// 两栏所需的本组件最小可用宽度（方案 6.1：左列约 260 + 右列至少 360）。
   static const double _twoPaneMinWidth = 620;
 
-  /// 左列固定宽度。
-  static const double _listPaneWidth = 260;
-
   ConversationPeerView? get _selectedView {
     final key = selectedPeerKey;
     if (key == null) {
@@ -126,6 +154,17 @@ class ConversationPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 性能关键：LayoutBuilder 在约束的任何变化（包括仅高度变化）时都会重跑 builder。
+    // 移动端软键盘弹出/收起期间，Scaffold 逐帧缩放 body 高度，若在 builder 内现场构建
+    // 详情子树，会导致气泡列表、输入栏等整棵子树每帧重建，表现为键盘动画掉帧。
+    // 这里用惰性 late final 局部变量把各区域 widget 在本次 build 内只创建一次：
+    // 高度变化触发的 builder 重跑拿到的是同一实例，Element 比对 identical 后直接跳过子树重建，
+    // 只剩廉价的重新布局；数据真正变化时外层 ConversationTab 重建本组件，缓存随之刷新。
+    late final Widget wideList = _listArea(context, collapsible: onListCollapsed != null);
+    late final Widget narrowList = _listArea(context);
+    late final Widget wideDetail = _detailArea(context, twoPane: true);
+    late final Widget narrowDetail = _detailArea(context, twoPane: false);
+
     return ResponsiveBuilder(
       builder: (sizing) {
         return LayoutBuilder(
@@ -133,12 +172,31 @@ class ConversationPanel extends StatelessWidget {
             final twoPane = sizing.isDesktop && constraints.maxWidth >= _twoPaneMinWidth;
 
             if (twoPane) {
+              final width = listWidth.clamp(200.0, constraints.maxWidth - 368);
               return Row(
                 children: [
-                  // 左列固定约 260 逻辑像素（方案 6.1）
-                  SizedBox(width: _listPaneWidth, child: _listArea(context)),
-                  const VerticalDivider(width: 1),
-                  Expanded(child: _detailArea(context, twoPane: true)),
+                  if (!listCollapsed) ...[
+                    SizedBox(
+                      width: width,
+                      child: wideList,
+                    ),
+                    if (onListWidthChanged != null)
+                      PaneDivider(
+                        onDrag: (delta) => onListWidthChanged!((width + delta).clamp(200.0, constraints.maxWidth - 368)),
+                        onDragEnd: onListResizeEnd ?? () {},
+                      )
+                    else
+                      const VerticalDivider(width: 1),
+                  ] else
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: IconButton(
+                        tooltip: t.conversation.expand,
+                        onPressed: () => onListCollapsed?.call(false),
+                        icon: const Icon(Icons.view_sidebar_outlined),
+                      ),
+                    ),
+                  Expanded(child: wideDetail),
                 ],
               );
             }
@@ -146,7 +204,7 @@ class ConversationPanel extends StatelessWidget {
             // 单栏：未选中或窄屏详情被收起时显示列表；选中且展开时显示详情并用 PopScope 接管系统返回
             final selected = _selectedView;
             if (selected == null || !showDetailOnNarrow) {
-              return _listArea(context);
+              return narrowList;
             }
             return PopScope(
               canPop: false,
@@ -155,7 +213,7 @@ class ConversationPanel extends StatelessWidget {
                   onSelect(null);
                 }
               },
-              child: _detailArea(context, twoPane: false),
+              child: narrowDetail,
             );
           },
         );
@@ -163,11 +221,14 @@ class ConversationPanel extends StatelessWidget {
     );
   }
 
-  Widget _listArea(BuildContext context) {
+  Widget _listArea(BuildContext context, {bool collapsible = false}) {
     return ConversationList(
       views: views,
       selectedPeerKey: selectedPeerKey,
       onTap: onSelect,
+      onRefresh: onRefresh,
+      refreshing: refreshing,
+      onCollapse: collapsible ? () => onListCollapsed?.call(true) : null,
     );
   }
 
@@ -197,6 +258,13 @@ class ConversationPanel extends StatelessWidget {
         draftText: draftText,
         onDraftChanged: onDraftChanged,
         onSendText: onSendText,
+        imageDraft: imageDraft,
+        onImageDraftChanged: onImageDraftChanged,
+        onSendImage: onSendImage,
+        fileDrafts: fileDrafts,
+        onPasteFiles: onPasteFiles,
+        onRemoveFile: onRemoveFile,
+        onSendFiles: onSendFiles,
         onPickAttachment: onPickAttachment,
         onPickAttachmentOption: onPickAttachmentOption,
         attachmentEnabled: attachmentEnabled,
@@ -230,6 +298,13 @@ class _ConversationDetail extends StatelessWidget {
   final String draftText;
   final ValueChanged<String> onDraftChanged;
   final ValueChanged<String> onSendText;
+  final Uint8List? imageDraft;
+  final ValueChanged<Uint8List?>? onImageDraftChanged;
+  final void Function(String, Uint8List)? onSendImage;
+  final List<CrossFile> fileDrafts;
+  final Future<void> Function(List<String>)? onPasteFiles;
+  final ValueChanged<int>? onRemoveFile;
+  final void Function(String, Uint8List?, List<CrossFile>)? onSendFiles;
   final VoidCallback? onPickAttachment;
   final ValueChanged<FilePickerOption>? onPickAttachmentOption;
   final bool attachmentEnabled;
@@ -252,6 +327,13 @@ class _ConversationDetail extends StatelessWidget {
     required this.draftText,
     required this.onDraftChanged,
     required this.onSendText,
+    required this.imageDraft,
+    required this.onImageDraftChanged,
+    required this.onSendImage,
+    required this.fileDrafts,
+    required this.onPasteFiles,
+    required this.onRemoveFile,
+    required this.onSendFiles,
     required this.onPickAttachment,
     required this.onPickAttachmentOption,
     required this.attachmentEnabled,
@@ -360,6 +442,13 @@ class _ConversationDetail extends StatelessWidget {
           enabled: view.online && !sendingLocked,
           onChanged: onDraftChanged,
           onSend: onSendText,
+          imageDraft: imageDraft,
+          onImageDraftChanged: onImageDraftChanged,
+          onSendImage: onSendImage,
+          fileDrafts: fileDrafts,
+          onPasteFiles: onPasteFiles,
+          onRemoveFile: onRemoveFile,
+          onSendFiles: onSendFiles,
           onPickAttachment: onPickAttachment,
           onPickAttachmentOption: onPickAttachmentOption,
           attachmentEnabled: attachmentEnabled,

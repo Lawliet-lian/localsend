@@ -1,10 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsend_app/gen/strings.g.dart';
+import 'package:localsend_app/model/cross_file.dart';
 import 'package:localsend_app/util/native/file_picker.dart';
 import 'package:localsend_app/widget/conversation/conversation_composer.dart';
+import 'package:localsend_isolates/model/file_type.dart';
 
 /// P6c：输入栏的行为合同测试（门槛：双击只发一次；文字保持原样；离线禁止发送）。
 void main() {
@@ -34,6 +38,72 @@ void main() {
   }
 
   group('ConversationComposer', () {
+    testWidgets('file draft can be removed or submitted with text', (tester) async {
+      const file = CrossFile(
+        name: 'video.mp4',
+        fileType: FileType.video,
+        size: 3,
+        thumbnail: null,
+        asset: null,
+        path: null,
+        bytes: [1, 2, 3],
+        lastModified: null,
+        lastAccessed: null,
+      );
+      int? removed;
+      List<CrossFile>? sent;
+      String? text;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ConversationComposer(
+              initialValue: 'hello',
+              enabled: true,
+              onChanged: (_) {},
+              onSend: (_) {},
+              fileDrafts: const [file],
+              onRemoveFile: (index) => removed = index,
+              onSendFiles: (value, image, files) {
+                text = value;
+                sent = files;
+              },
+            ),
+          ),
+        ),
+      );
+      expect(find.textContaining('video.mp4'), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.close));
+      expect(removed, 0);
+      await tester.tap(find.byIcon(Icons.send));
+      expect(text, 'hello');
+      expect(sent, [file]);
+    });
+    testWidgets('image draft and text are submitted together to the image handler', (tester) async {
+      final bytes = base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/aWQAAAAASUVORK5CYII=');
+      String? sentText;
+      Uint8List? sentImage;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ConversationComposer(
+              initialValue: 'hello',
+              enabled: true,
+              onChanged: (_) {},
+              onSend: (_) => fail('text must be queued with the image'),
+              imageDraft: bytes,
+              onImageDraftChanged: (_) {},
+              onSendImage: (text, image) {
+                sentText = text;
+                sentImage = image;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byIcon(Icons.send));
+      expect(sentText, 'hello');
+      expect(sentImage, same(bytes));
+    });
     testWidgets('desktop attachment buttons choose the requested type', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       FilePickerOption? selected;

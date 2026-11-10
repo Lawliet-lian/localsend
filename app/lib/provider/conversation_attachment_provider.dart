@@ -142,6 +142,8 @@ class ConversationAttachmentService extends Notifier<ConversationAttachmentState
 
   @visibleForTesting
   Future<List<CrossFile>> pickFiles(BuildContext context, ConversationAttachmentCache cache) async {
+    // 移动端不再主动收起键盘：AddFileDialog.chooseOption 的弹层不抢占焦点并自动抬到键盘上方，
+    // 键盘保持展开、聊天区不随之重排，弹层动画即可保持流畅。
     final options = FilePickerOption.getOptionsForPlatform();
     final isAndroid = checkPlatform([TargetPlatform.android]);
     final option = await AddFileDialog.chooseOption(

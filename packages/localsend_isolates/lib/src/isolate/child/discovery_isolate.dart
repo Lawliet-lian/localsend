@@ -61,7 +61,7 @@ class DiscoverySubnetScanTask implements DiscoveryTask {
 /// Completes (without events) when every stage has finished; the found
 /// devices arrive on the [DiscoveryListenTask] stream.
 class DiscoveryStagedScanTask implements DiscoveryTask {
-  final List<(String, int)> favorites;
+  final List<(String, int, bool)> favorites;
   final List<String> networkInterfaces;
   final int port;
   final bool https;

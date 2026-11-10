@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:localsend_app/config/init.dart';
 import 'package:localsend_app/config/theme.dart';
@@ -11,10 +13,13 @@ import 'package:localsend_app/pages/tabs/conversation_tab.dart';
 import 'package:localsend_app/pages/tabs/receive_tab.dart';
 import 'package:localsend_app/pages/tabs/send_tab.dart';
 import 'package:localsend_app/pages/tabs/settings_tab.dart';
+import 'package:localsend_app/provider/conversation_ui_provider.dart';
+import 'package:localsend_app/provider/conversation_view_provider.dart';
 import 'package:localsend_app/provider/persistence_provider.dart';
 import 'package:localsend_app/provider/selection/selected_sending_files_provider.dart';
 import 'package:localsend_app/provider/settings_provider.dart';
 import 'package:localsend_app/util/native/cross_file_converters.dart';
+import 'package:localsend_app/widget/conversation/pane_divider.dart';
 import 'package:localsend_app/widget/responsive_builder.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 
@@ -63,13 +68,36 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with Refena {
   bool _dragAndDropIndicator = false;
+  double _navigationWidth = 220;
+  double _listWidth = 260;
+  bool _navigationCollapsed = false;
+  bool _listCollapsed = false;
+
+  /// 启动时是否仍待自动选中「列表第一个设备」。
+  /// 仅 appStart 且横屏/桌面生效；竖屏或用户已手动选中后置 false，避免覆盖用户操作。
+  bool _autoSelectFirstPending = false;
 
   @override
   void initState() {
     super.initState();
 
     ensureRef((ref) async {
-      ref.redux(homePageControllerProvider).dispatch(ChangeTabAction(widget.initialTab));
+      final persistence = ref.read(persistenceProvider);
+      setState(() {
+        _navigationWidth = persistence.getConversationNavigationWidth();
+        _listWidth = persistence.getConversationListWidth();
+        _navigationCollapsed = persistence.getConversationNavigationCollapsed();
+        _listCollapsed = persistence.getConversationListCollapsed();
+      });
+      // 启动默认进入会话 tab，不再恢复上次停留的 tab 与上次会话设备（后者可能已不存在）。
+      // 三栏宽度/折叠状态仍按上次关闭时的持久化值恢复（拖拽结束即落盘）。
+      final initialTab = widget.appStart ? HomeTab.conversation : widget.initialTab;
+      if (widget.appStart) {
+        _autoSelectFirstPending = true;
+        // 首帧后按当前横竖屏决定是否自动打开第一个设备；竖屏只停留在会话列表。
+        WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAutoSelectFirst());
+      }
+      ref.redux(homePageControllerProvider).dispatch(ChangeTabAction(initialTab));
       await postInit(context, ref, widget.appStart);
       if (widget.appStart && mounted && ref.read(persistenceProvider).needsReceiveConfirmationMigration()) {
         final previous = ref.read(persistenceProvider).getQuickSave();
@@ -111,10 +139,48 @@ class _HomePageState extends State<HomePage> with Refena {
     });
   }
 
+  /// 启动自动选中列表第一个设备（桌面/横屏）。
+  /// 竖屏（高 > 宽）只停留在会话列表；列表暂空时保持 pending，等设备出现由 build 的 listener 再触发。
+  /// 用户已手动选中设备时不再覆盖。
+  void _maybeAutoSelectFirst() {
+    if (!_autoSelectFirstPending || !mounted) return;
+    final size = MediaQuery.sizeOf(context);
+    if (size.height > size.width) {
+      _autoSelectFirstPending = false;
+      return;
+    }
+    if (ref.read(conversationUiProvider).selectedPeerKey != null) {
+      _autoSelectFirstPending = false;
+      return;
+    }
+    final views = ref.read(conversationPeerViewsProvider);
+    if (views.isEmpty) return;
+    _autoSelectFirstPending = false;
+    ref.notifier(conversationUiProvider).selectPeer(views.first.peerKey);
+  }
+
   @override
   Widget build(BuildContext context) {
     Translations.of(context); // rebuild on locale change
     final vm = context.watch(homePageControllerProvider);
+    final conversationUi = context.watch(conversationUiProvider);
+    final conversationViews = context.watch(
+      conversationPeerViewsProvider,
+      listener: (prev, next) {
+        // 启动时列表可能先空后发现：首个设备出现时补选一次。
+        if (_autoSelectFirstPending) _maybeAutoSelectFirst();
+      },
+    );
+
+    void changeTab(HomeTab tab) {
+      vm.changeTab(tab);
+      unawaited(ref.read(persistenceProvider).setLastHomeTab(tab.name));
+    }
+
+    void setNavigationCollapsed(bool value) {
+      setState(() => _navigationCollapsed = value);
+      unawaited(ref.read(persistenceProvider).setConversationNavigationCollapsed(value));
+    }
 
     return DropTarget(
       enable: vm.currentTab != HomeTab.conversation,
@@ -147,38 +213,68 @@ class _HomePageState extends State<HomePage> with Refena {
                 ),
               );
         }
-        vm.changeTab(HomeTab.send);
+        changeTab(HomeTab.send);
       },
       child: ResponsiveBuilder(
         builder: (sizingInformation) {
+          final adjustable = sizingInformation.isDesktop && vm.currentTab == HomeTab.conversation && MediaQuery.sizeOf(context).width >= 808;
+          final maxNavigationWidth = (MediaQuery.sizeOf(context).width - 628).clamp(72.0, 360.0);
+          final navigationWidth = _navigationWidth.clamp(72.0, maxNavigationWidth);
+          final compactNavigation = adjustable && navigationWidth < 180;
           return Scaffold(
             body: Row(
               children: [
-                if (!sizingInformation.isMobile)
-                  NavigationRail(
-                    selectedIndex: vm.currentTab.index,
-                    onDestinationSelected: (index) => vm.changeTab(HomeTab.values[index]),
-                    extended: sizingInformation.isDesktop,
-                    backgroundColor: Theme.of(context).cardColorWithElevation,
-                    leading: sizingInformation.isDesktop
-                        ? const Column(
-                            children: [
-                              SizedBox(height: 20),
-                              Text(
-                                'LocalSend',
-                                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
+                if (adjustable && _navigationCollapsed)
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: IconButton(
+                      tooltip: t.conversation.expand,
+                      onPressed: () => setNavigationCollapsed(false),
+                      icon: const Icon(Icons.menu),
+                    ),
+                  )
+                else if (!sizingInformation.isMobile)
+                  SizedBox(
+                    width: adjustable ? navigationWidth : (sizingInformation.isDesktop ? 256 : 72),
+                    child: ColoredBox(
+                      color: Theme.of(context).cardColorWithElevation,
+                      child: Column(
+                        children: [
+                          if (sizingInformation.isDesktop) ...[
+                            const SizedBox(height: 20),
+                            Text(compactNavigation ? 'LC' : 'LocalChat', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                            if (adjustable)
+                              IconButton(
+                                tooltip: t.conversation.collapse,
+                                onPressed: () => setNavigationCollapsed(true),
+                                icon: const Icon(Icons.first_page),
+                              )
+                            else
+                              const SizedBox(height: 20),
+                          ],
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: NavigationRail(
+                                selectedIndex: vm.currentTab.index,
+                                onDestinationSelected: (index) => changeTab(HomeTab.values[index]),
+                                extended: sizingInformation.isDesktop && !compactNavigation,
+                                minExtendedWidth: 180,
+                                backgroundColor: Theme.of(context).cardColorWithElevation,
+                                destinations: HomeTab.values
+                                    .map((tab) => NavigationRailDestination(icon: Icon(tab.icon), label: Text(tab.label)))
+                                    .toList(),
                               ),
-                              SizedBox(height: 20),
-                            ],
-                          )
-                        : null,
-                    destinations: HomeTab.values.map((tab) {
-                      return NavigationRailDestination(
-                        icon: Icon(tab.icon),
-                        label: Text(tab.label),
-                      );
-                    }).toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (adjustable && !_navigationCollapsed)
+                  PaneDivider(
+                    onDrag: (delta) => setState(() => _navigationWidth = (navigationWidth + delta).clamp(72.0, maxNavigationWidth)),
+                    onDragEnd: () => ref.read(persistenceProvider).setConversationNavigationWidth(_navigationWidth),
                   ),
                 Expanded(
                   child: SafeArea(
@@ -192,7 +288,17 @@ class _HomePageState extends State<HomePage> with Refena {
                             const ReceiveTab(),
                             const SendTab(),
                             const SettingsTab(),
-                            ConversationTab(dropEnabled: vm.currentTab == HomeTab.conversation), // 必须与 HomeTab.values 顺序一致（index 3 = conversation）
+                            ConversationTab(
+                              dropEnabled: vm.currentTab == HomeTab.conversation,
+                              listWidth: _listWidth,
+                              listCollapsed: _listCollapsed,
+                              onListCollapsed: (value) {
+                                setState(() => _listCollapsed = value);
+                                unawaited(ref.read(persistenceProvider).setConversationListCollapsed(value));
+                              },
+                              onListWidthChanged: (value) => setState(() => _listWidth = value),
+                              onListResizeEnd: () => ref.read(persistenceProvider).setConversationListWidth(_listWidth),
+                            ),
                           ],
                         ),
                         if (_dragAndDropIndicator)
@@ -216,10 +322,15 @@ class _HomePageState extends State<HomePage> with Refena {
                 ),
               ],
             ),
-            bottomNavigationBar: sizingInformation.isMobile
+            bottomNavigationBar:
+                sizingInformation.isMobile &&
+                    !(defaultTargetPlatform == TargetPlatform.android &&
+                        vm.currentTab == HomeTab.conversation &&
+                        conversationUi.showDetailOnMobile &&
+                        conversationViews.any((view) => view.peerKey == conversationUi.selectedPeerKey))
                 ? NavigationBar(
                     selectedIndex: vm.currentTab.index,
-                    onDestinationSelected: (index) => vm.changeTab(HomeTab.values[index]),
+                    onDestinationSelected: (index) => changeTab(HomeTab.values[index]),
                     destinations: HomeTab.values.map((tab) {
                       return NavigationDestination(icon: Icon(tab.icon), label: tab.label);
                     }).toList(),
