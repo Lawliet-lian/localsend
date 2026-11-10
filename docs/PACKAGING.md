@@ -12,29 +12,46 @@ cd app
 fvm flutter pub get
 ```
 
-分别构建并保存 `.app`。每次构建前清理，避免复用另一架构的产物：
+分别构建并保存 `.app`。Flutter 3.41.9 将 `FLUTTER_XCODE_ARCHS` 传给 Xcode 的 `ARCHS` 设置。以下命令在子 shell 中运行，任一步失败就停止，避免打包旧产物；每次构建前清理，并在复制前检查主程序架构：
 
 ```bash
+(
+set -e
 # Apple Silicon (arm64)
 fvm flutter clean
+fvm flutter pub get
 FLUTTER_XCODE_ARCHS=arm64 fvm flutter build macos --release
+test "$(lipo -archs build/macos/Build/Products/Release/LocalSend.app/Contents/MacOS/LocalSend)" = arm64
+rm -rf dist/macos-arm64/LocalSend.app
 mkdir -p dist/macos-arm64
 ditto build/macos/Build/Products/Release/LocalSend.app dist/macos-arm64/LocalSend.app
 lipo -archs dist/macos-arm64/LocalSend.app/Contents/MacOS/LocalSend
+)
 
+(
+set -e
 # x86_64
 fvm flutter clean
+fvm flutter pub get
 FLUTTER_XCODE_ARCHS=x86_64 fvm flutter build macos --release
+test "$(lipo -archs build/macos/Build/Products/Release/LocalSend.app/Contents/MacOS/LocalSend)" = x86_64
+rm -rf dist/macos-x86_64/LocalSend.app
 mkdir -p dist/macos-x86_64
 ditto build/macos/Build/Products/Release/LocalSend.app dist/macos-x86_64/LocalSend.app
 lipo -archs dist/macos-x86_64/LocalSend.app/Contents/MacOS/LocalSend
+)
 ```
 
-检查 `lipo` 输出分别为 `arm64` 和 `x86_64`。如需简单 DMG，在 `app` 目录执行：
+检查 `lipo` 输出分别为 `arm64` 和 `x86_64`；这只检查主程序，交付前还应在对应架构的 Mac 上启动验证。只需要一种架构时，执行对应的一组即可。制作包含“应用程序”快捷方式的 DMG，先安装 `create-dmg`（`brew install create-dmg`），然后在 `app` 目录执行所需的一组：
 
 ```bash
-hdiutil create -volname LocalSend -srcfolder dist/macos-arm64 -ov -format UDZO dist/LocalSend-macos-arm64.dmg
-hdiutil create -volname LocalSend -srcfolder dist/macos-x86_64 -ov -format UDZO dist/LocalSend-macos-x86_64.dmg
+create-dmg --overwrite --volname LocalSend --window-size 500 300 \
+  --icon LocalSend.app 130 110 --app-drop-link 360 110 \
+  dist/LocalSend-macos-arm64.dmg dist/macos-arm64
+
+create-dmg --overwrite --volname LocalSend --window-size 500 300 \
+  --icon LocalSend.app 130 110 --app-drop-link 360 110 \
+  dist/LocalSend-macos-x86_64.dmg dist/macos-x86_64
 ```
 
 上述 DMG 适合本地测试；对外分发还需使用自己的 Developer ID 签名并通过 Apple 公证。仓库的 `support/scripts/compile_mac_dmg.sh` 展示了签名、公证和装订流程，但包含维护者的签名身份和占位账户信息，使用前须修改。
