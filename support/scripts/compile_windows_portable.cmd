@@ -11,7 +11,7 @@ set "EXITCODE=%ERRORLEVEL%"
 
 echo.
 if "%EXITCODE%"=="0" (
-    echo Portable bundle built. Output: app\dist\LocalSend-windows-x86_64.zip
+    echo Portable bundle built. Output: app\dist\LocalSend-windows-x64.zip
     echo Unpack it into a new empty directory and start localsend_app.exe to verify.
 ) else (
     echo Build FAILED with exit code %EXITCODE%. Read the messages above.

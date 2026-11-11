@@ -29,7 +29,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $appDir = Join-Path $repoRoot 'app'
 $distDir = Join-Path $appDir 'dist'
 $releaseDir = Join-Path $appDir "build\windows\$Arch\runner\Release"
-$zipName = if ($Arch -eq 'x64') { 'LocalSend-windows-x86_64.zip' } else { 'LocalSend-windows-arm64.zip' }
+$zipName = if ($Arch -eq 'x64') { 'LocalSend-windows-x64.zip' } else { 'LocalSend-windows-arm64.zip' }
 $zipPath = Join-Path $distDir $zipName
 
 # On a non-UTF-8 code page (for example 936) plugin sources trigger warning C4819, which the

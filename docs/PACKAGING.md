@@ -122,12 +122,12 @@ flutter build windows --release
 
 # 便携化处理，与 build_windows_zip_x64.yml 同序，三步都不能省
 $rel = 'build/windows/x64/runner/Release'
-Set-Content -Path "$rel/settings.json" -Value '{}' -NoNewline -Encoding Ascii
+Set-Content -Path "$rel/portable.marker" -Value 'portable' -NoNewline -Encoding Ascii
 Copy-Item ../support/build/windows/x64/msvcp140.dll,../support/build/windows/x64/vcruntime140.dll,../support/build/windows/x64/vcruntime140_1.dll $rel
 Remove-Item "$rel/localsend_msix_helper.msix","$rel/install_msix_helper.ps1","$rel/localsend_app.exe.manifest"
 
 New-Item -ItemType Directory -Force -Path dist | Out-Null
-Compress-Archive -Path $rel/* -DestinationPath dist/LocalSend-windows-x86_64.zip -Force
+Compress-Archive -Path $rel/* -DestinationPath dist/LocalSend-windows-x64.zip -Force
 ```
 
 **ARM64 Windows：**
@@ -142,7 +142,7 @@ flutter build windows --release
 
 # 便携化处理；仓库只带 x64 的运行时 DLL，arm64 要从 Visual Studio redist 取（与 CI 一致）
 $rel = 'build/windows/arm64/runner/Release'
-Set-Content -Path "$rel/settings.json" -Value '{}' -NoNewline -Encoding Ascii
+Set-Content -Path "$rel/portable.marker" -Value 'portable' -NoNewline -Encoding Ascii
 $crt = Get-ChildItem 'C:\Program Files\Microsoft Visual Studio\2022\*\VC\Redist\MSVC\*\arm64\Microsoft.VC143.CRT' | Select-Object -Last 1
 Copy-Item "$($crt.FullName)\msvcp140.dll","$($crt.FullName)\vcruntime140.dll","$($crt.FullName)\vcruntime140_1.dll" $rel
 Remove-Item "$rel/localsend_msix_helper.msix","$rel/install_msix_helper.ps1","$rel/localsend_app.exe.manifest"
@@ -151,11 +151,11 @@ New-Item -ItemType Directory -Force -Path dist | Out-Null
 Compress-Archive -Path $rel/* -DestinationPath dist/LocalSend-windows-arm64.zip -Force
 ```
 
-`x64` 是 Flutter 实际生成的目录名，对应 x86_64。ZIP 位于 `app/dist/`（该目录已被 `app/.gitignore` 的 `/dist/` 规则忽略，不会误提交），分别名为 `LocalSend-windows-x86_64.zip` 和 `LocalSend-windows-arm64.zip`。必须打包 Release 目录中的全部文件和子目录，不能只复制 exe。
+`x64` 是 Flutter 实际生成的目录名，对应 x86_64（即 64 位 AMD64）。32 位是 i386，Flutter 的 Windows 桌面不支持，`flutter_tools` 只有 `windows_x64` 与 `windows_arm64` 两个目标平台，并按主机架构自动选择。ZIP 位于 `app/dist/`（该目录已被 `app/.gitignore` 的 `/dist/` 规则忽略，不会误提交），分别名为 `LocalSend-windows-x64.zip` 和 `LocalSend-windows-arm64.zip`。上游 CI 的发布名是 `LocalSend-<版本>-windows-x86-64.zip`，指的也是同一个 64 位包；本地产物用更短的 `x64`，以免与表示 32 位的 `x86` 混淆。必须打包 Release 目录中的全部文件和子目录，不能只复制 exe。
 
 上面的便携化三步决定了包是不是真的便携版，缺一步就会退化：
 
-1. **写入空的 `settings.json`**。它是便携模式的开关，而不是配置文件：`app/lib/provider/persistence_provider.dart` 检测到 exe 旁边存在 `settings.json` 时才使用 `SharedPreferencesPortable`，把设置写在 exe 同目录；否则 Windows 上会写入 `%APPDATA%\LocalSend\settings.json`，而且 `app/lib/config/init.dart` 在非便携模式首次启动时会调 `enableContextMenu()` 改注册表。内容必须是合法 JSON（`{}`）且不带 BOM，所以用 `Set-Content -Encoding Ascii` 或 `[System.IO.File]::WriteAllText`，不要用 PowerShell 的 `>` 重定向（PS 5.1 会写成 UTF-16）。另注意 .NET 的当前目录不跟随 `Set-Location`，给 `WriteAllText` 传相对路径会写到错误位置。
+1. **写入便携模式标记 `portable.marker`**。只判断文件是否存在，内容无关（CI 写 `portable`，脚本写空文件）。`app/lib/util/shared_preferences/shared_preferences_portable.dart` 的 `exists()` 为“exe 旁存在 `settings.json` **或** `portable.marker`”，`persistence_provider.dart` 据此使用 `SharedPreferencesPortable`，把设置写在 exe 同目录；否则 Windows 上会写入 `%APPDATA%\LocalSend\settings.json`，而且 `app/lib/config/init.dart` 在非便携模式首次启动时会调 `enableContextMenu()` 改注册表。**标记必须与用户配置分离**：早期做法是随包发布一个 `{}` 的 `settings.json`，升级时把新包解压覆盖到旧目录就会用空配置覆盖用户设置；改用独立的 `portable.marker` 后，`settings.json` 只由 app 自己写，发布包里不再包含它，因此打包前要确认构建目录里没有残留的 `settings.json`（脚本会主动删除）。标记是纯文本，用 `Set-Content -Encoding Ascii` 写，不要用 PowerShell 的 `>` 重定向（PS 5.1 会写成 UTF-16）；给 `[System.IO.File]::WriteAllText` 传路径时要用绝对路径，因为 .NET 的当前目录不跟随 `Set-Location`。
 2. **复制 VC++ 运行时**（`msvcp140.dll`、`vcruntime140.dll`、`vcruntime140_1.dll`）。`flutter build windows` 不会产出它们，不带的话在未安装 Visual C++ Redistributable 的干净机器上会因缺少 DLL 而无法启动。开发机通常已装 Redist，所以这个缺陷在本地不会暴露。
 3. **删除 MSIX helper 三件套**（`localsend_msix_helper.msix`、`install_msix_helper.ps1`、`localsend_app.exe.manifest`）。它们是 CMake install 步骤从 `app/windows/` 复制过来的，只对安装程序有意义（CI 注释：“portable users should not register an MSIX package”）。只删 `build/` 里的副本，`app/windows/localsend_msix_helper.msix` 保留，下次构建仍可直接用。
 
