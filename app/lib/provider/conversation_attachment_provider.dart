@@ -136,7 +136,6 @@ class ConversationAttachmentService extends Notifier<ConversationAttachmentState
     }
   }
 
-  @visibleForTesting
   Future<List<CrossFile>> convertDroppedFiles(List<DropItem> files, ConversationAttachmentCache cache) async {
     final selection = RefenaContainer();
     try {

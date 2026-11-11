@@ -17,11 +17,13 @@ class ConversationUiState {
 
   /// peerKey -> 纯文字草稿。内容原样保存：不 trim、不丢失换行（方案 6.2）。
   final Map<String, String> drafts;
+  final Set<String> immediateAttachments;
 
   const ConversationUiState({
     this.selectedPeerKey,
     this.showDetailOnMobile = false,
     this.drafts = const {},
+    this.immediateAttachments = const {},
   });
 }
 
@@ -40,6 +42,7 @@ class ConversationUiService extends Notifier<ConversationUiState> {
       selectedPeerKey: peerKey,
       showDetailOnMobile: true,
       drafts: state.drafts,
+      immediateAttachments: state.immediateAttachments,
     );
   }
 
@@ -49,6 +52,7 @@ class ConversationUiService extends Notifier<ConversationUiState> {
       selectedPeerKey: state.selectedPeerKey,
       showDetailOnMobile: false,
       drafts: state.drafts,
+      immediateAttachments: state.immediateAttachments,
     );
   }
 
@@ -64,6 +68,7 @@ class ConversationUiService extends Notifier<ConversationUiState> {
       selectedPeerKey: state.selectedPeerKey,
       showDetailOnMobile: state.showDetailOnMobile,
       drafts: drafts,
+      immediateAttachments: state.immediateAttachments,
     );
   }
 
@@ -77,6 +82,22 @@ class ConversationUiService extends Notifier<ConversationUiState> {
       selectedPeerKey: state.selectedPeerKey,
       showDetailOnMobile: state.showDetailOnMobile,
       drafts: drafts,
+      immediateAttachments: state.immediateAttachments,
+    );
+  }
+
+  void setImmediateAttachments(String peerKey, bool enabled) {
+    final keys = Set<String>.of(state.immediateAttachments);
+    if (enabled) {
+      keys.add(peerKey);
+    } else {
+      keys.remove(peerKey);
+    }
+    state = ConversationUiState(
+      selectedPeerKey: state.selectedPeerKey,
+      showDetailOnMobile: state.showDetailOnMobile,
+      drafts: state.drafts,
+      immediateAttachments: keys,
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/conversation/conversation_models.dart';
 import 'package:localsend_app/provider/conversation_view_provider.dart';
+import 'package:localsend_app/widget/conversation/conversation_composer.dart';
 import 'package:localsend_app/widget/conversation/conversation_panel.dart';
 import 'package:localsend_isolates/model/device.dart';
 
@@ -89,6 +90,7 @@ void main() {
     VoidCallback? onPickAttachment,
     bool attachmentEnabled = true,
     bool sendingLocked = false,
+    ValueChanged<bool>? onImmediateAttachmentsChanged,
   }) async {
     setWindow(tester, windowWidth);
     String? selected = initialSelection;
@@ -116,11 +118,30 @@ void main() {
             onPickAttachment: onPickAttachment,
             attachmentEnabled: attachmentEnabled,
             sendingLocked: sendingLocked,
+            onImmediateAttachmentsChanged: onImmediateAttachmentsChanged,
           ),
         ),
       ),
     );
   }
+
+  testWidgets('attachment mode is available in the conversation menu', (tester) async {
+    bool? selected;
+    await pumpPanel(
+      tester,
+      windowWidth: 1000,
+      views: [view('fp:aaa', alias: 'Device A')],
+      initialSelection: 'fp:aaa',
+      onImmediateAttachmentsChanged: (value) => selected = value,
+    );
+    expect(find.byType(Switch), findsNothing);
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+    await tester.tap(find.byType(PopupMenuItem<String>));
+    await tester.pumpAndSettle();
+    expect(selected, isTrue);
+  });
 
   group('响应式布局', () {
     testWidgets('窗口 >=800 且自身 >=620：两栏，列表与详情同时可见', (tester) async {
@@ -151,7 +172,7 @@ void main() {
       );
 
       // 单栏初始只显示列表
-      expect(find.byType(ListTile), findsOneWidget);
+      expect(find.text('Device A'), findsOneWidget);
       expect(find.text('hello from A'), findsNothing);
 
       await tester.tap(find.text('Device A'));
@@ -213,7 +234,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 回到列表且选中回调收到 null
-      expect(find.byType(ListTile), findsOneWidget);
+      expect(find.text('Device A'), findsOneWidget);
       expect(find.text('hello'), findsNothing);
     });
   });
@@ -414,7 +435,9 @@ void main() {
       );
 
       // 两个按钮 onPressed 都为 null（附件 + 发送）
-      final buttons = tester.widgetList<IconButton>(find.byType(IconButton)).toList();
+      final buttons = tester
+          .widgetList<IconButton>(find.descendant(of: find.byType(ConversationComposer), matching: find.byType(IconButton)))
+          .toList();
       expect(buttons.every((b) => b.onPressed == null), isTrue);
       // 草稿不丢：输入框仍展示原文（锁只针对提交动作，不清空内容）
       expect(find.text('kept draft'), findsOneWidget);

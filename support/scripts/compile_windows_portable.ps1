@@ -3,7 +3,7 @@
 #   generate MSIX helper -> build -> verify PE architecture -> portable post-processing -> zip.
 #
 # Why the result is portable:
-#   - settings.json next to the executable is the marker that makes the app store its configuration
+#   - portable.marker next to the executable makes the app store its configuration
 #     beside the exe instead of in %APPDATA%\LocalSend (app/lib/provider/persistence_provider.dart).
 #   - The MSIX helper is dropped, so nothing registers an MSIX package or a shell extension.
 #   - The VC++ runtime DLLs are bundled, so it also runs without the Visual C++ Redistributable.
@@ -124,11 +124,11 @@ if ($machine -ne $expected) {
 Write-Host ('PE machine: 0x{0:X4}  {1}' -f $machine, $exePath)
 
 # 4. Portable post-processing, same order as the CI workflow.
-# 4a. settings.json switches the app into portable mode. WriteAllText is used on purpose:
-#     PowerShell 5.1 redirection would write UTF-16 and break the JSON parser.
+# 4a. Keep the marker separate from user settings so an upgrade cannot overwrite them.
 $settingsPath = Join-Path $releaseDir 'settings.json'
-[System.IO.File]::WriteAllText($settingsPath, '{}')
-Write-Host "Added settings.json (enables portable mode)"
+if (Test-Path $settingsPath) { Remove-Item $settingsPath -Force }
+[System.IO.File]::WriteAllText((Join-Path $releaseDir 'portable.marker'), '')
+Write-Host "Added portable.marker (enables portable mode)"
 
 # 4b. VC++ runtime, so the bundle runs on machines without the Visual C++ Redistributable.
 #     The repository ships the x64 DLLs; arm64 comes from the Visual Studio redist, like CI does.

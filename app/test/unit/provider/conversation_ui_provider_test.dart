@@ -5,6 +5,18 @@ import 'package:test/test.dart';
 /// P2 会话 UI 状态测试：选中、窄屏详情、按 peerKey 草稿。
 /// 对应验收：切设备不丢草稿、返回列表不丢选中（方案 6.2/6.3、不变量 1）。
 void main() {
+  test('attachment mode is independent per peer and survives other UI changes', () {
+    final service = Notifier.test(notifier: ConversationUiService());
+    service.notifier.setImmediateAttachments('a', true);
+    service.notifier.selectPeer('b');
+    service.notifier.updateDraft('b', 'hello');
+    service.notifier.backToList();
+    expect(service.state.immediateAttachments, {'a'});
+    service.notifier.setImmediateAttachments('b', true);
+    service.notifier.setImmediateAttachments('a', false);
+    expect(service.state.immediateAttachments, {'b'});
+    expect(service.state.drafts['b'], 'hello');
+  });
   group('选中与详情', () {
     test('selectPeer 设置选中并进入窄屏详情', () {
       final service = Notifier.test(notifier: ConversationUiService());

@@ -77,6 +77,8 @@ class ConversationPanel extends StatelessWidget {
 
   /// 附件按钮门槛投影（P9b）：接线层 watch conversationAttachmentEnabledProvider。
   final bool attachmentEnabled;
+  final bool immediateAttachments;
+  final ValueChanged<bool>? onImmediateAttachmentsChanged;
 
   /// 选择器打开期间锁住会话发送（P9b，方案 6.3）：接线层传 picking 标志；
   /// 仅禁用发送/附件按钮，草稿保留。设备切换锁由接线层在 onSelect 里自行拦截。
@@ -126,6 +128,8 @@ class ConversationPanel extends StatelessWidget {
     this.onPickAttachment,
     this.onPickAttachmentOption,
     this.attachmentEnabled = true,
+    this.immediateAttachments = false,
+    this.onImmediateAttachmentsChanged,
     this.sendingLocked = false,
     this.receiveCard,
     this.onReceiveAccept,
@@ -268,6 +272,8 @@ class ConversationPanel extends StatelessWidget {
         onPickAttachment: onPickAttachment,
         onPickAttachmentOption: onPickAttachmentOption,
         attachmentEnabled: attachmentEnabled,
+        immediateAttachments: immediateAttachments,
+        onImmediateAttachmentsChanged: onImmediateAttachmentsChanged,
         sendingLocked: sendingLocked,
         // P7c：卡片已在接线层按选中 peer 匹配，这里直接挂载
         receiveCard: receiveCard,
@@ -308,6 +314,8 @@ class _ConversationDetail extends StatelessWidget {
   final VoidCallback? onPickAttachment;
   final ValueChanged<FilePickerOption>? onPickAttachmentOption;
   final bool attachmentEnabled;
+  final bool immediateAttachments;
+  final ValueChanged<bool>? onImmediateAttachmentsChanged;
   final bool sendingLocked;
   final ConversationReceiveCardVm? receiveCard;
   final void Function(Map<String, String> fileNameMap)? onReceiveAccept;
@@ -337,6 +345,8 @@ class _ConversationDetail extends StatelessWidget {
     required this.onPickAttachment,
     required this.onPickAttachmentOption,
     required this.attachmentEnabled,
+    required this.immediateAttachments,
+    required this.onImmediateAttachmentsChanged,
     required this.sendingLocked,
     required this.receiveCard,
     required this.onReceiveAccept,
@@ -375,22 +385,60 @@ class _ConversationDetail extends StatelessWidget {
                     color: view.online ? theme.colorScheme.primary : theme.colorScheme.outline,
                   ),
                 ),
-                // 顶栏右侧菜单（P9a-3）：目前仅「清空当前会话」。点击只回调 onClearPeer(peerKey)，
-                // 确认与落盘由接线层完成；只清记录、不删文件、不取消传输（方案第 7 节）。
-                if (onClearPeer != null)
+                if (onClearPeer != null || onImmediateAttachmentsChanged != null)
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert),
-                    tooltip: t.conversation.clearConversation,
+                    position: PopupMenuPosition.under,
+                    constraints: const BoxConstraints(minWidth: 240, maxWidth: 280),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     onSelected: (value) {
                       if (value == 'clear') {
-                        onClearPeer!(view.peerKey);
+                        onClearPeer?.call(view.peerKey);
+                      } else if (value == 'immediate') {
+                        onImmediateAttachmentsChanged?.call(!immediateAttachments);
                       }
                     },
                     itemBuilder: (context) => [
-                      PopupMenuItem<String>(
-                        value: 'clear',
-                        child: Text(t.conversation.clearConversation),
-                      ),
+                      if (onImmediateAttachmentsChanged != null)
+                        PopupMenuItem<String>(
+                          value: 'immediate',
+                          enabled: attachmentEnabled,
+                          child: Semantics(
+                            toggled: immediateAttachments,
+                            child: Row(
+                              children: [
+                                Icon(Icons.bolt_outlined, size: 20, color: theme.colorScheme.onSurfaceVariant),
+                                const SizedBox(width: 12),
+                                Expanded(child: Text(t.conversation.attachmentImmediate, style: theme.textTheme.bodyMedium)),
+                                const SizedBox(width: 8),
+                                IgnorePointer(
+                                  child: ExcludeSemantics(
+                                    child: SizedBox(
+                                      height: 32,
+                                      child: Switch(value: immediateAttachments, onChanged: attachmentEnabled ? (_) {} : null),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (onClearPeer != null)
+                        PopupMenuItem<String>(
+                          value: 'clear',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline, size: 20, color: theme.colorScheme.error),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  t.conversation.clearConversation,
+                                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.error),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
               ],

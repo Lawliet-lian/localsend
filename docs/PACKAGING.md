@@ -15,7 +15,7 @@ rustup target add aarch64-apple-darwin x86_64-apple-darwin
 ```bash
 (
 set -e
-cd app
+cd "/Users/lawliet/Documents/WorkSpace/Lawliet-lian/localsend/app"
 # Apple Silicon (arm64)
 fvm flutter clean
 fvm flutter pub get
@@ -29,7 +29,7 @@ lipo -archs dist/macos-arm64/LocalSend.app/Contents/MacOS/LocalSend
 
 (
 set -e
-cd app
+cd "/Users/lawliet/Documents/WorkSpace/Lawliet-lian/localsend/app"
 # x86_64
 fvm flutter clean
 fvm flutter pub get
@@ -42,10 +42,12 @@ lipo -archs dist/macos-x86_64/LocalSend.app/Contents/MacOS/LocalSend
 )
 ```
 
-检查 `lipo` 输出分别为 `arm64` 和 `x86_64`；这只检查主程序，交付前还应在对应架构的 Mac 上启动验证。只需要一种架构时，执行对应的一组即可。制作包含“应用程序”快捷方式的 DMG，先安装 `create-dmg`（`brew install create-dmg`），然后从仓库根目录执行：
+检查 `lipo` 输出分别为 `arm64` 和 `x86_64`；这只检查主程序，交付前还应在对应架构的 Mac 上启动验证。只需要一种架构时，执行对应的一组即可。制作包含“应用程序”快捷方式的 DMG，先安装 `create-dmg`（`brew install create-dmg`），然后执行：
 
 ```bash
-cd app
+(
+set -e
+cd "/Users/lawliet/Documents/WorkSpace/Lawliet-lian/localsend/app"
 create-dmg --overwrite --volname LocalSend --window-size 500 300 \
   --icon LocalSend.app 130 110 --app-drop-link 360 110 \
   dist/LocalSend-macos-arm64.dmg dist/macos-arm64
@@ -53,6 +55,7 @@ create-dmg --overwrite --volname LocalSend --window-size 500 300 \
 create-dmg --overwrite --volname LocalSend --window-size 500 300 \
   --icon LocalSend.app 130 110 --app-drop-link 360 110 \
   dist/LocalSend-macos-x86_64.dmg dist/macos-x86_64
+)
 ```
 
 上述 DMG 适合本地测试；对外分发还需使用自己的 Developer ID 签名并通过 Apple 公证。仓库的 `support/scripts/compile_mac_dmg.sh` 展示了签名、公证和装订流程，但包含维护者的签名身份和占位账户信息，使用前须修改。

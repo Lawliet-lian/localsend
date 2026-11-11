@@ -12,6 +12,9 @@ final _logger = Logger('SharedPreferencesPortable');
 /// This is used to for portable mode.
 class SharedPreferencesPortable extends SharedPreferencesFile {
   SharedPreferencesPortable() : super(filePath: _getSettingsPathFromExecutable(), beautify: true);
+
+  @override
+  bool exists() => super.exists() || File(path.join(path.dirname(getPath()), 'portable.marker')).existsSync();
 }
 
 /// Returns the absolute path to the settings.json file next to the executable.

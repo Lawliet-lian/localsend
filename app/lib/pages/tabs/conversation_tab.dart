@@ -114,6 +114,7 @@ class ConversationTab extends StatelessWidget {
     // picking 标志用于选择器打开期间锁住附件、文字发送与设备切换。
     final picking = context.watch(conversationAttachmentProvider.select((s) => s.picking));
     final selectedDevice = views.firstWhereOrNull((v) => v.peerKey == ui.selectedPeerKey)?.device;
+    final immediateAttachments = ui.immediateAttachments.contains(ui.selectedPeerKey);
 
     // P7c 接收卡片：投影层已按 eligibility 判定；卡片内部自行订阅进度（不高频重建本 tab）
     final cardVm = context.watch(conversationReceiveCardProvider);
@@ -139,7 +140,26 @@ class ConversationTab extends StatelessWidget {
       dropEnabled: dropEnabled,
       onDropFiles: selectedDevice == null
           ? null
-          : (files) => ref.notifier(conversationAttachmentProvider).addDroppedFilesToDraft(context, peerKey: ui.selectedPeerKey!, files: files),
+          : (files) async {
+              final peerKey = ui.selectedPeerKey!;
+              if (!immediateAttachments) {
+                await ref.notifier(conversationAttachmentProvider).addDroppedFilesToDraft(context, peerKey: peerKey, files: files);
+                return;
+              }
+              final cache = ConversationAttachmentCache();
+              try {
+                final selected = await ref.notifier(conversationAttachmentProvider).convertDroppedFiles(files, cache);
+                if (selected.isEmpty) {
+                  cache.close();
+                  return;
+                }
+                final view = views.firstWhere((view) => view.peerKey == peerKey);
+                await _sendFilesAndText(ref, selectedDevice, view, selected, null, '', cache);
+              } catch (_) {
+                cache.close();
+                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.conversation.dropFailed)));
+              }
+            },
       views: views,
       entries: entries,
       entryBuilder: (entry) => ConversationSendEntryTile(entry: entry),
@@ -190,7 +210,13 @@ class ConversationTab extends StatelessWidget {
             }
           }
           final existing = ref.read(conversationFileDraftProvider)[peerKey] ?? const <CrossFile>[];
-          ref.notifier(conversationFileDraftProvider).setFiles(peerKey, [...existing, ...selection.read(selectedSendingFilesProvider)]);
+          final selected = selection.read(selectedSendingFilesProvider);
+          if (immediateAttachments && selectedDevice != null) {
+            final view = views.firstWhere((view) => view.peerKey == peerKey);
+            await _sendFilesAndText(ref, selectedDevice, view, List.of(selected), null, '', null);
+          } else {
+            ref.notifier(conversationFileDraftProvider).setFiles(peerKey, [...existing, ...selected]);
+          }
         } catch (_) {
           if (Platform.isAndroid) {
             for (final path in paths) {
@@ -226,7 +252,12 @@ class ConversationTab extends StatelessWidget {
       },
       onImageDraftChanged: (image) {
         final peerKey = ui.selectedPeerKey;
-        if (peerKey != null) ref.notifier(conversationImageDraftProvider).setImage(peerKey, image);
+        if (peerKey != null && image != null && immediateAttachments && selectedDevice != null) {
+          final view = views.firstWhere((view) => view.peerKey == peerKey);
+          unawaited(_sendImageAndText(ref, selectedDevice, view, image, ''));
+        } else if (peerKey != null) {
+          ref.notifier(conversationImageDraftProvider).setImage(peerKey, image);
+        }
       },
       onSendImage: (text, image) {
         final peerKey = ui.selectedPeerKey;
@@ -239,11 +270,24 @@ class ConversationTab extends StatelessWidget {
       // 附件先加入当前会话的草稿；设备离线时不显示选择按钮。
       onPickAttachment: selectedDevice == null
           ? null
-          : () => unawaited(ref.notifier(conversationAttachmentProvider).pickToDraft(context, peerKey: ui.selectedPeerKey!)),
+          : () => unawaited(
+              immediateAttachments
+                  ? ref.notifier(conversationAttachmentProvider).pickAndSend(context, target: selectedDevice)
+                  : ref.notifier(conversationAttachmentProvider).pickToDraft(context, peerKey: ui.selectedPeerKey!),
+            ),
       onPickAttachmentOption: selectedDevice == null
           ? null
-          : (option) => unawaited(ref.notifier(conversationAttachmentProvider).pickToDraft(context, peerKey: ui.selectedPeerKey!, option: option)),
+          : (option) => unawaited(
+              immediateAttachments
+                  ? ref.notifier(conversationAttachmentProvider).pickAndSendOption(context, target: selectedDevice, option: option)
+                  : ref.notifier(conversationAttachmentProvider).pickToDraft(context, peerKey: ui.selectedPeerKey!, option: option),
+            ),
       attachmentEnabled: !picking,
+      immediateAttachments: immediateAttachments,
+      onImmediateAttachmentsChanged: (value) {
+        final peerKey = ui.selectedPeerKey;
+        if (peerKey != null) ref.notifier(conversationUiProvider).setImmediateAttachments(peerKey, value);
+      },
       sendingLocked: picking,
       // P7c：卡片与按钮回调全部转发 serverProvider 原有动作；重复点击安全：
       // acceptFileRequest/declineFileRequest 内部已有 status != waiting 的 guard（门槛）

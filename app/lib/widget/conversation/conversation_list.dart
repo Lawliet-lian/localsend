@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/provider/conversation_view_provider.dart';
 import 'package:localsend_app/util/device_type_ext.dart';
+import 'package:localsend_app/widget/dialogs/favorite_edit_dialog.dart';
 
 /// 会话设备列表（方案 6.1 左栏/窄屏首页）。
 ///
@@ -176,13 +177,19 @@ class _ConversationListTile extends StatelessWidget {
             style: theme.textTheme.bodySmall?.copyWith(color: textColor.withValues(alpha: 0.7)),
           ),
           // 活跃收发指示：仅小图标提示，不提供任何操作（取消属于原传输 provider）
-          trailing: (view.hasActiveSend || view.hasActiveReceive)
-              ? SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: theme.colorScheme.primary),
-                )
-              : null,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (view.hasActiveSend || view.hasActiveReceive)
+                SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: theme.colorScheme.primary)),
+              if (!view.isFavorite && view.device != null)
+                IconButton(
+                  tooltip: t.dialogs.favoriteEditDialog.titleAdd,
+                  icon: const Icon(Icons.star_border_rounded),
+                  onPressed: () => showDialog<void>(context: context, builder: (_) => FavoriteEditDialog(prefilledDevice: view.device)),
+                ),
+            ],
+          ),
         ),
       ],
     );
