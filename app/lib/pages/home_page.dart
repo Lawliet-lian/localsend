@@ -8,6 +8,7 @@ import 'package:localsend_app/config/init.dart';
 import 'package:localsend_app/config/theme.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/persistence/quick_save_mode.dart';
+import 'package:localsend_app/pages/device_details_page.dart';
 import 'package:localsend_app/pages/home_page_controller.dart';
 import 'package:localsend_app/pages/tabs/conversation_tab.dart';
 import 'package:localsend_app/pages/tabs/receive_tab.dart';
@@ -22,6 +23,7 @@ import 'package:localsend_app/util/native/cross_file_converters.dart';
 import 'package:localsend_app/widget/conversation/pane_divider.dart';
 import 'package:localsend_app/widget/responsive_builder.dart';
 import 'package:refena_flutter/refena_flutter.dart';
+import 'package:routerino/routerino.dart';
 
 enum HomeTab {
   receive(Icons.wifi),
@@ -67,6 +69,9 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with Refena {
+  final Set<String> _suggestedRelinks = {};
+  Timer? _relinkTimer;
+  bool _relinkDialogOpen = false;
   bool _dragAndDropIndicator = false;
   double _navigationWidth = 220;
   double _listWidth = 260;
@@ -76,6 +81,55 @@ class _HomePageState extends State<HomePage> with Refena {
   /// 启动时是否仍待自动选中「列表第一个设备」。
   /// 仅 appStart 且横屏/桌面生效；竖屏或用户已手动选中后置 false，避免覆盖用户操作。
   bool _autoSelectFirstPending = false;
+
+  @override
+  void dispose() {
+    _relinkTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleRelinkSuggestion() {
+    _relinkTimer?.cancel();
+    _relinkTimer = Timer(const Duration(seconds: 3), _suggestRelink);
+  }
+
+  Future<void> _suggestRelink() async {
+    if (!mounted || _relinkDialogOpen) return;
+    final views = ref.read(conversationPeerViewsProvider);
+    for (final current in views) {
+      final device = current.device;
+      if (!current.online || device == null || device.fingerprint.trim().isEmpty) continue;
+      for (final old in views) {
+        if (!old.isFavorite ||
+            old.online ||
+            old.peerKey == current.peerKey ||
+            old.alias.trim().isEmpty ||
+            old.alias.trim().toLowerCase() != current.alias.trim().toLowerCase()) {
+          continue;
+        }
+        final pair = '${old.peerKey}|${current.peerKey}';
+        if (!_suggestedRelinks.add(pair)) continue;
+        _relinkDialogOpen = true;
+        try {
+          final accepted = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text(t.deviceDetailsPage.relinkSuggestionTitle),
+              content: Text(t.deviceDetailsPage.relinkSuggestion(name: current.alias)),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t.general.cancel)),
+                FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(t.deviceDetailsPage.relinkTitle)),
+              ],
+            ),
+          );
+          if (accepted == true && mounted) await context.push(() => DeviceDetailsPage(device: device, promptRelink: true));
+        } finally {
+          _relinkDialogOpen = false;
+        }
+        return;
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -169,6 +223,7 @@ class _HomePageState extends State<HomePage> with Refena {
       listener: (prev, next) {
         // 启动时列表可能先空后发现：首个设备出现时补选一次。
         if (_autoSelectFirstPending) _maybeAutoSelectFirst();
+        _scheduleRelinkSuggestion();
       },
     );
 
@@ -290,6 +345,14 @@ class _HomePageState extends State<HomePage> with Refena {
                             const SettingsTab(),
                             ConversationTab(
                               dropEnabled: vm.currentTab == HomeTab.conversation,
+                              onManualRefresh: () {
+                                _suggestedRelinks.clear();
+                                _relinkTimer?.cancel();
+                                unawaited(_suggestRelink());
+                              },
+                              onManualRefreshComplete: () {
+                                _scheduleRelinkSuggestion();
+                              },
                               listWidth: _listWidth,
                               listCollapsed: _listCollapsed,
                               onListCollapsed: (value) {

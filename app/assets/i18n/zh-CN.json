@@ -276,6 +276,15 @@
   },
   "deviceDetailsPage": {
     "title": "设备详情",
+    "relinkTitle": "关联旧设备",
+    "relinkSuggestionTitle": "发现可能的旧设备",
+    "relinkSuggestion": "在线设备 {name} 与一个离线收藏名称相同，但身份不同。如果设备重装过应用，可以核对后关联；关联后，新旧设备的历史消息将合并。",
+    "relinkEmpty": "没有可关联的离线收藏设备。",
+    "relinkSelect": "选择要关联的旧设备：",
+    "relinkWarning": "请确认这是同一台设备。关联后，旧收藏将绑定到新身份，新旧设备的历史消息将合并。仅在信任新设备时继续。",
+    "relinkUnavailable": "设备已离线或正在传输，请稍后重试。",
+    "relinkSuccess": "设备已关联。",
+    "relinkFailed": "未能完成关联，请重试。",
     "favorite": "收藏",
     "verify": "验证",
     "info": {

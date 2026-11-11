@@ -69,6 +69,25 @@ void main() {
 
   ConversationHistoryDto lastWritten() => verify(persistence.setConversationHistory(captureAny)).captured.last as ConversationHistoryDto;
 
+  test('linking identities preserves both histories and persists the new peer', () async {
+    final old = peer('OLD');
+    final current = peer('NEW');
+    final service = ReduxNotifier.test(
+      redux: ConversationService(persistence),
+      initialState: ConversationState(
+        peers: [old, current],
+        entries: [
+          snapshot('old', peerKey: old.peerKey),
+          snapshot('new', peerKey: current.peerKey),
+        ],
+      ),
+    );
+    await service.dispatchAsync(RelinkConversationAction(oldPeer: old, newPeer: current));
+    expect(service.state.peers.map((p) => p.peerKey), [current.peerKey]);
+    expect(service.state.entries.map((e) => e.peerKey), [current.peerKey, current.peerKey]);
+    expect(lastWritten().entries.map((e) => e.peerKey), [current.peerKey, current.peerKey]);
+  });
+
   group('写入与串行合并', () {
     test('登记后落盘：dto 含该记录', () async {
       final service = ReduxNotifier.test(redux: ConversationService(persistence));

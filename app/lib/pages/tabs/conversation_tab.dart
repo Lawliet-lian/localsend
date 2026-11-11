@@ -85,6 +85,8 @@ class ConversationTab extends StatelessWidget {
   final ValueChanged<bool>? onListCollapsed;
   final ValueChanged<double>? onListWidthChanged;
   final VoidCallback? onListResizeEnd;
+  final VoidCallback? onManualRefreshComplete;
+  final VoidCallback? onManualRefresh;
   const ConversationTab({
     super.key,
     this.dropEnabled = true,
@@ -93,6 +95,8 @@ class ConversationTab extends StatelessWidget {
     this.onListCollapsed,
     this.onListWidthChanged,
     this.onListResizeEnd,
+    this.onManualRefreshComplete,
+    this.onManualRefresh,
   });
 
   @override
@@ -127,7 +131,11 @@ class ConversationTab extends StatelessWidget {
       onListWidthChanged: onListWidthChanged,
       onListResizeEnd: onListResizeEnd,
       refreshing: refreshing,
-      onRefresh: () => unawaited(ref.global.dispatchAsync(RefreshConversationDevices())),
+      onRefresh: () => unawaited(() async {
+        onManualRefresh?.call();
+        await ref.global.dispatchAsync(RefreshConversationDevices());
+        onManualRefreshComplete?.call();
+      }()),
       dropEnabled: dropEnabled,
       onDropFiles: selectedDevice == null
           ? null

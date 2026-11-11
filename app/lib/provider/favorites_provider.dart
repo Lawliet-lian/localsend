@@ -59,6 +59,32 @@ class UpdateFavoriteAction extends AsyncReduxAction<FavoritesService, List<Favor
   }
 }
 
+/// Replace two user-confirmed identities with the old favorite's settings.
+class RelinkFavoriteAction extends AsyncReduxAction<FavoritesService, List<FavoriteDevice>> {
+  final FavoriteDevice oldFavorite;
+  final Device device;
+  RelinkFavoriteAction({required this.oldFavorite, required this.device});
+
+  @override
+  Future<List<FavoriteDevice>> reduce() async {
+    final index = state.indexWhere((favorite) => favorite.id == oldFavorite.id);
+    if (index < 0) throw StateError('Favorite no longer exists');
+    final old = state[index];
+    final updated = old.copyWith(
+      fingerprint: device.fingerprint,
+      ip: device.ip ?? old.ip,
+      port: device.ip != null ? device.port : old.port,
+      alias: old.customAlias ? old.alias : device.alias,
+    );
+    final result = List<FavoriteDevice>.unmodifiable([
+      for (final favorite in state)
+        if (favorite.id == old.id) updated else if (favorite.fingerprint.toLowerCase() != device.fingerprint.toLowerCase()) favorite,
+    ]);
+    await notifier._persistence.setFavorites(result);
+    return result;
+  }
+}
+
 /// Refreshes a saved device when it is rediscovered under the same identity.
 class RefreshFavoriteFromDeviceAction extends AsyncReduxAction<FavoritesService, List<FavoriteDevice>> {
   final Device device;

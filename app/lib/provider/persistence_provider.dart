@@ -207,7 +207,7 @@ class PersistenceService {
     }
 
     if (isFirstAppStart) {
-      await prefs.setString(_receiveConfirmation, QuickSaveMode.off.name);
+      await prefs.setString(_receiveConfirmation, QuickSaveMode.paired.name);
       final systemAnimations = await getSystemAnimationsStatus();
       if (!systemAnimations) {
         _logger.info('System animations are disabled, disabling animations in the app.');
@@ -519,7 +519,7 @@ class PersistenceService {
   }
 
   QuickSaveMode getReceiveConfirmation() {
-    return QuickSaveMode.values.firstWhereOrNull((mode) => mode.name == _prefs.getString(_receiveConfirmation)) ?? QuickSaveMode.off;
+    return QuickSaveMode.values.firstWhereOrNull((mode) => mode.name == _prefs.getString(_receiveConfirmation)) ?? QuickSaveMode.paired;
   }
 
   bool needsReceiveConfirmationMigration() => !isFirstAppStart && !_prefs.containsKey(_receiveConfirmation);

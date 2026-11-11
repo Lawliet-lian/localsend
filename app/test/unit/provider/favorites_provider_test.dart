@@ -29,6 +29,23 @@ void main() {
     verify(persistenceService.setFavorites([device]));
   });
 
+  test('linking identities preserves the old custom alias and removes the new duplicate', () async {
+    final old = _createDevice('old', fingerprint: 'OLD').copyWith(alias: 'Friend', customAlias: true);
+    final current = _createDevice('new', fingerprint: 'NEW');
+    final service = ReduxNotifier.test(redux: FavoritesService(persistenceService), initialState: [old, current]);
+    await service.dispatchAsync(
+      RelinkFavoriteAction(
+        oldFavorite: old,
+        device: Device.empty.copyWith(fingerprint: 'NEW', ip: '10.0.0.4', port: 53317, alias: 'PC'),
+      ),
+    );
+    expect(service.state, hasLength(1));
+    expect(service.state.single.fingerprint, 'NEW');
+    expect(service.state.single.alias, 'Friend');
+    expect(service.state.single.ip, '10.0.0.4');
+    verify(persistenceService.setFavorites(service.state)).called(1);
+  });
+
   test('Should update a favorite device', () async {
     final initialDevice = _createDevice('1', alias: 'A');
     final service = ReduxNotifier.test(

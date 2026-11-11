@@ -205,6 +205,36 @@ class ConversationService extends ReduxNotifier<ConversationState> {
   }
 }
 
+/// Move the old identity's history to a user-confirmed new identity.
+class RelinkConversationAction extends AsyncReduxAction<ConversationService, ConversationState> {
+  final ConversationPeer oldPeer;
+  final ConversationPeer newPeer;
+
+  RelinkConversationAction({required this.oldPeer, required this.newPeer});
+
+  @override
+  Future<ConversationState> reduce() async {
+    if (oldPeer.peerKey == newPeer.peerKey) return state;
+    final updated = ConversationState(
+      peers: [
+        for (final peer in state.peers)
+          if (peer.peerKey != oldPeer.peerKey && peer.peerKey != newPeer.peerKey) peer,
+        newPeer,
+      ],
+      entries: [
+        for (final entry in state.entries)
+          if (entry.peerKey == oldPeer.peerKey) entry.copyWith(peerKey: newPeer.peerKey) else entry,
+      ],
+      clearedEntryIds: state.clearedEntryIds,
+    );
+    // Wait for older snapshots before writing the migrated history. Do not
+    // remove the old favorite if this write fails.
+    await notifier.persistQueue;
+    await notifier._persistence?.setConversationHistory(notifier._toPersistable(updated));
+    return updated;
+  }
+}
+
 /// 登记一次真实传输：upsert 设备信息，并创建对应的传输记录（气泡）。
 ///
 /// 幂等性：同一 entryId（direction + localSessionId）重复 ensure 不会追加第二条记录，

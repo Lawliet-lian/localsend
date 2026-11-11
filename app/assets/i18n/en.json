@@ -278,6 +278,15 @@
   },
   "deviceDetailsPage": {
     "title": "Device Details",
+    "relinkTitle": "Link previous device",
+    "relinkSuggestionTitle": "Possible previous device",
+    "relinkSuggestion": "An offline favorite and the online device {name} have the same name but different identities. If the app was reinstalled, you can review and link them. Their message histories will be merged.",
+    "relinkEmpty": "No offline favorite devices are available.",
+    "relinkSelect": "Select the previous device:",
+    "relinkWarning": "Confirm these are the same device. The old favorite will be linked to the new identity, and both message histories will be merged. Only continue if you trust the new device.",
+    "relinkUnavailable": "The device is offline or a transfer is active. Try again later.",
+    "relinkSuccess": "Device linked.",
+    "relinkFailed": "Could not finish linking. Please try again.",
     "favorite": "Favorite",
     "verify": "Verify",
     "info": {

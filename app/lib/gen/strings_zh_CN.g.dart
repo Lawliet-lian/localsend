@@ -409,6 +409,24 @@ class Translations$deviceDetailsPage$zh_CN extends Translations$deviceDetailsPag
   @override
   String get title => '设备详情';
   @override
+  String get relinkTitle => '关联旧设备';
+  @override
+  String get relinkSuggestionTitle => '发现可能的旧设备';
+  @override
+  String relinkSuggestion({required Object name}) => '在线设备 ${name} 与一个离线收藏名称相同，但身份不同。如果设备重装过应用，可以核对后关联；关联后，新旧设备的历史消息将合并。';
+  @override
+  String get relinkEmpty => '没有可关联的离线收藏设备。';
+  @override
+  String get relinkSelect => '选择要关联的旧设备：';
+  @override
+  String get relinkWarning => '请确认这是同一台设备。关联后，旧收藏将绑定到新身份，新旧设备的历史消息将合并。仅在信任新设备时继续。';
+  @override
+  String get relinkUnavailable => '设备已离线或正在传输，请稍后重试。';
+  @override
+  String get relinkSuccess => '设备已关联。';
+  @override
+  String get relinkFailed => '未能完成关联，请重试。';
+  @override
   String get favorite => '收藏';
   @override
   String get verify => '验证';

@@ -464,6 +464,35 @@ class Translations$deviceDetailsPage$en {
   /// en: 'Device Details'
   String get title => 'Device Details';
 
+  /// en: 'Link previous device'
+  String get relinkTitle => 'Link previous device';
+
+  /// en: 'Possible previous device'
+  String get relinkSuggestionTitle => 'Possible previous device';
+
+  /// en: 'An offline favorite and the online device {name} have the same name but different identities. If the app was reinstalled, you can review and link them. Their message histories will be merged.'
+  String relinkSuggestion({required Object name}) =>
+      'An offline favorite and the online device ${name} have the same name but different identities. If the app was reinstalled, you can review and link them. Their message histories will be merged.';
+
+  /// en: 'No offline favorite devices are available.'
+  String get relinkEmpty => 'No offline favorite devices are available.';
+
+  /// en: 'Select the previous device:'
+  String get relinkSelect => 'Select the previous device:';
+
+  /// en: 'Confirm these are the same device. The old favorite will be linked to the new identity, and both message histories will be merged. Only continue if you trust the new device.'
+  String get relinkWarning =>
+      'Confirm these are the same device. The old favorite will be linked to the new identity, and both message histories will be merged. Only continue if you trust the new device.';
+
+  /// en: 'The device is offline or a transfer is active. Try again later.'
+  String get relinkUnavailable => 'The device is offline or a transfer is active. Try again later.';
+
+  /// en: 'Device linked.'
+  String get relinkSuccess => 'Device linked.';
+
+  /// en: 'Could not finish linking. Please try again.'
+  String get relinkFailed => 'Could not finish linking. Please try again.';
+
   /// en: 'Favorite'
   String get favorite => 'Favorite';
 
