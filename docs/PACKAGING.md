@@ -8,8 +8,6 @@
 
 ```bash
 rustup target add aarch64-apple-darwin x86_64-apple-darwin
-cd app
-fvm flutter pub get
 ```
 
 分别构建并保存 `.app`。Flutter 3.41.9 将 `FLUTTER_XCODE_ARCHS` 传给 Xcode 的 `ARCHS` 设置。以下命令在子 shell 中运行，任一步失败就停止，避免打包旧产物；每次构建前清理，并在复制前检查主程序架构：
@@ -17,6 +15,7 @@ fvm flutter pub get
 ```bash
 (
 set -e
+cd app
 # Apple Silicon (arm64)
 fvm flutter clean
 fvm flutter pub get
@@ -30,6 +29,7 @@ lipo -archs dist/macos-arm64/LocalSend.app/Contents/MacOS/LocalSend
 
 (
 set -e
+cd app
 # x86_64
 fvm flutter clean
 fvm flutter pub get
@@ -42,9 +42,10 @@ lipo -archs dist/macos-x86_64/LocalSend.app/Contents/MacOS/LocalSend
 )
 ```
 
-检查 `lipo` 输出分别为 `arm64` 和 `x86_64`；这只检查主程序，交付前还应在对应架构的 Mac 上启动验证。只需要一种架构时，执行对应的一组即可。制作包含“应用程序”快捷方式的 DMG，先安装 `create-dmg`（`brew install create-dmg`），然后在 `app` 目录执行所需的一组：
+检查 `lipo` 输出分别为 `arm64` 和 `x86_64`；这只检查主程序，交付前还应在对应架构的 Mac 上启动验证。只需要一种架构时，执行对应的一组即可。制作包含“应用程序”快捷方式的 DMG，先安装 `create-dmg`（`brew install create-dmg`），然后从仓库根目录执行：
 
 ```bash
+cd app
 create-dmg --overwrite --volname LocalSend --window-size 500 300 \
   --icon LocalSend.app 130 110 --app-drop-link 360 110 \
   dist/LocalSend-macos-arm64.dmg dist/macos-arm64
