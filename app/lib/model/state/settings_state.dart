@@ -39,8 +39,7 @@ class SettingsState with SettingsStateMappable {
   final String? deviceModel;
   final bool shareViaLinkAutoAccept;
   final bool receiveViaLinkAutoAccept;
-  final bool
-  conversationReceiveEnabled; // P7a: render incoming native-http transfers in the conversation UI instead of the legacy pages (off by default)
+  final bool conversationReceiveEnabled; // Render incoming native-http transfers in the conversation UI instead of the legacy pages.
   final bool createChecksums; // create checksums when sending files
   final bool verifyChecksums; // verify checksums when receiving files
   final int discoveryTimeout;

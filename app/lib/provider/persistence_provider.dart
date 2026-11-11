@@ -446,7 +446,7 @@ class PersistenceService {
 
   /// 会话接收展示开关（P7a）：开启后新的原生 HTTP 接收请求进入会话 UI；默认关闭保持 legacy。
   bool getConversationReceiveEnabled() {
-    return _prefs.getBool(_conversationReceiveEnabled) ?? false;
+    return _prefs.getBool(_conversationReceiveEnabled) ?? true;
   }
 
   Future<void> setConversationReceiveEnabled(bool conversationReceiveEnabled) async {

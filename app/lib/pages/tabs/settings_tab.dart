@@ -111,15 +111,6 @@ class SettingsTab extends StatelessWidget {
                         await ref.notifier(settingsProvider).setSaveWindowPlacement(b);
                       },
                     ),
-                  if (checkPlatformHasTray()) ...[
-                    _BooleanEntry(
-                      label: t.settingsTab.general.minimizeToTray,
-                      value: vm.settings.minimizeToTray,
-                      onChanged: (b) async {
-                        await ref.notifier(settingsProvider).setMinimizeToTray(b);
-                      },
-                    ),
-                  ],
                   if (checkPlatformIsDesktop()) ...[
                     _BooleanEntry(
                       label: t.settingsTab.general.launchAtStartup,

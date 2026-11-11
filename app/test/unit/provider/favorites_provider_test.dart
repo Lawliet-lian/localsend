@@ -1,5 +1,6 @@
 import 'package:localsend_app/model/persistence/favorite_device.dart';
 import 'package:localsend_app/provider/favorites_provider.dart';
+import 'package:localsend_isolates/model/device.dart';
 import 'package:mockito/mockito.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 import 'package:test/test.dart';
@@ -64,6 +65,35 @@ void main() {
     expect(service.state, [initialDevice]);
     expect(service.state.first.alias, 'A');
     verifyNever(persistenceService.setFavorites(any));
+  });
+
+  test('Rediscovery updates the address while preserving a custom alias', () async {
+    final initial = _createDevice('1').copyWith(customAlias: true, alias: 'Friend');
+    final service = ReduxNotifier.test(redux: FavoritesService(persistenceService), initialState: [initial]);
+    final discovered = Device.empty.copyWith(fingerprint: '123', ip: '192.168.1.42', port: 53318, alias: 'New name');
+
+    await service.dispatchAsync(RefreshFavoriteFromDeviceAction(discovered));
+
+    expect(service.state.single.ip, '192.168.1.42');
+    expect(service.state.single.port, 53318);
+    expect(service.state.single.alias, 'Friend');
+    verify(persistenceService.setFavorites(service.state)).called(1);
+    await service.dispatchAsync(RefreshFavoriteFromDeviceAction(discovered));
+    verifyNever(persistenceService.setFavorites(any));
+  });
+
+  test('Rediscovery only updates the matching fingerprint', () async {
+    final initial = _createDevice('1');
+    final service = ReduxNotifier.test(redux: FavoritesService(persistenceService), initialState: [initial]);
+    await service.dispatchAsync(RefreshFavoriteFromDeviceAction(Device.empty.copyWith(fingerprint: 'other', ip: '192.168.1.42', port: 123)));
+    expect(service.state.single, initial);
+    verifyNever(persistenceService.setFavorites(any));
+    await service.dispatchAsync(
+      RefreshFavoriteFromDeviceAction(Device.empty.copyWith(fingerprint: '123', ip: '192.168.1.42', port: 456, alias: 'Updated')),
+    );
+    expect(service.state.single.alias, 'Updated');
+    expect(service.state.single.ip, '192.168.1.42');
+    expect(service.state.single.port, 456);
   });
 
   test('Should delete favorite device', () async {

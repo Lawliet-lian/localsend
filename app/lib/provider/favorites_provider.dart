@@ -1,5 +1,6 @@
 import 'package:localsend_app/model/persistence/favorite_device.dart';
 import 'package:localsend_app/provider/persistence_provider.dart';
+import 'package:localsend_isolates/model/device.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 
 /// This provider stores the list of favorite devices.
@@ -55,6 +56,31 @@ class UpdateFavoriteAction extends AsyncReduxAction<FavoritesService, List<Favor
     );
     await notifier._persistence.setFavorites(updated);
     return updated;
+  }
+}
+
+/// Refreshes a saved device when it is rediscovered under the same identity.
+class RefreshFavoriteFromDeviceAction extends AsyncReduxAction<FavoritesService, List<FavoriteDevice>> {
+  final Device device;
+
+  RefreshFavoriteFromDeviceAction(this.device);
+
+  @override
+  Future<List<FavoriteDevice>> reduce() async {
+    final index = state.indexWhere((favorite) => favorite.fingerprint.isNotEmpty && favorite.fingerprint == device.fingerprint);
+    if (index == -1) return state;
+    final favorite = state[index];
+    final ip = device.ip;
+    final updated = favorite.copyWith(
+      ip: ip != null && ip.isNotEmpty ? ip : favorite.ip,
+      port: ip != null && ip.isNotEmpty && device.port > 0 ? device.port : favorite.port,
+      alias: favorite.customAlias ? favorite.alias : device.alias,
+    );
+    if (updated == favorite) return state;
+    final favorites = List<FavoriteDevice>.of(state)..[index] = updated;
+    final result = List<FavoriteDevice>.unmodifiable(favorites);
+    await notifier._persistence.setFavorites(result);
+    return result;
   }
 }
 
